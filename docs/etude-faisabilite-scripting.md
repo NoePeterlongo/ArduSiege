@@ -196,6 +196,19 @@ MoonSharp reste préféré pour son confort (coroutines natives pour les boucles
 sandbox par whitelist, débogueur VSCode en dev) ; UniLua est le choix de sûreté (déjà prouvé
 dans Besiege) et un excellent modèle pour notre couche capteurs/actionneurs.
 
+**Pourquoi pas Python ?** (question posée à l'étude — réponse : triple bloqueur technique) :
+- IronPython (le seul Python .NET sérieux) repose sur le DLR → compile les scripts en IL
+  **à l'exécution** via `System.Reflection.Emit` → banni par le préfixe `System.Reflection`
+  de la liste noire ;
+- de surcroît IronPython dépend des assemblies `Microsoft.Scripting`/`Microsoft.Dynamic`
+  → préfixe `Microsoft` banni (double KO, même en contournant le premier point) ;
+- Python embarqué natif (Python.NET/CPython) = DLL natives + `DllImport` → rejetés
+  (`HasPInvokeInfo`) ; aucun interpréteur Python pur-managé mature n'existe pour CLR 2.0 ;
+- même en réussissant : la sandbox interdit `os`/`sys`/`io`/imports arbitraires → il ne
+  resterait que la syntaxe, sans stdlib ni pip ;
+- précédents : LenchScripterMod (Python/IronPython) n'a existé que sous spaar (pré-scanner) ;
+  ilyshk4, confronté au même loader officiel, a choisi Lua.
+
 Autres précédents : LenchScripterMod (Python/IronPython, **ère spaar — serait rejeté
 aujourd'hui** à cause du DLR), AdvancedControlsMod (idem + SDL2), Lachcim/Rbtwrrr
 Scripter, L3tum/BesiScript (transpilation *offline* vers blocs logiques vanilla — approche

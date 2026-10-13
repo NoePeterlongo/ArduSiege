@@ -6,3 +6,6 @@
 
 # Logs Unity
 *.log
+
+# Code du jeu decompile (ILSpy) — reference locale uniquement
+decomp/

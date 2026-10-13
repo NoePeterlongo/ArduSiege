@@ -1,0 +1,8 @@
+# Le jeu : trop gros pour git, jamais commité
+/Besiege/
+
+# Artifacts de build
+*.dll
+
+# Logs Unity
+*.log

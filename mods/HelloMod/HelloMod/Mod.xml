@@ -1,0 +1,11 @@
+<Mod>
+    <Name>HelloMod</Name>
+    <Author>noe</Author>
+    <Version>0.0.1</Version>
+    <Description>Premier mod : affiche un message dans la console au chargement.</Description>
+    <MultiplayerCompatible>true</MultiplayerCompatible>
+    <Debug>true</Debug>
+    <Assemblies>
+        <Assembly path="HelloMod.dll" />
+    </Assemblies>
+</Mod>

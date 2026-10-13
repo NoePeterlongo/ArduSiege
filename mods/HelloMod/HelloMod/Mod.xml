@@ -1,4 +1,4 @@
-<Mod>
+﻿<Mod>
     <Name>HelloMod</Name>
     <Author>noe</Author>
     <Version>0.0.1</Version>
@@ -8,4 +8,8 @@
     <Assemblies>
         <Assembly path="HelloMod.dll" />
     </Assemblies>
+
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+<ID>fab34b9a-9151-4f45-8e3c-e40bc47e41e9</ID>
 </Mod>

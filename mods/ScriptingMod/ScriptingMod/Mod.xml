@@ -1,4 +1,4 @@
-<Mod>
+﻿<Mod>
     <Name>ScriptingMod</Name>
     <Author>noe</Author>
     <Version>0.0.1</Version>
@@ -9,4 +9,8 @@
         <Assembly path="MoonSharp.Interpreter.dll" />
         <Assembly path="ScriptingMod.dll" />
     </Assemblies>
+
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+<ID>64dffd8d-00ec-465e-9a68-78535b2c1223</ID>
 </Mod>

@@ -206,11 +206,23 @@ namespace MoonSharp.Interpreter
 
 			if (!Processor.IsDumpStream(codeStream))
 			{
-				using (StreamReader sr = new StreamReader(codeStream))
+				// [TRIMMED — mod ScriptingMod Besiege] System.IO.StreamReader n'est pas
+				// whitelisté par l'AssemblyScanner (la whitelist couvre Stream/TextReader/
+				// TextWriter/BinaryReader/BinaryWriter/MemoryStream/Path/SeekOrigin) : lecture
+				// manuelle du flux via Stream + Encoding.UTF8, tous deux autorisés.
+				byte[] buffer = new byte[(int)codeStream.Length];
+				int offset = 0;
+				while (offset < buffer.Length)
 				{
-					string scriptCode = sr.ReadToEnd();
-					return LoadString(scriptCode, globalTable, codeFriendlyName);
+					int read = codeStream.Read(buffer, offset, buffer.Length - offset);
+					if (read <= 0)
+					{
+						break;
+					}
+					offset += read;
 				}
+				string scriptCode = System.Text.Encoding.UTF8.GetString(buffer, 0, offset);
+				return LoadString(scriptCode, globalTable, codeFriendlyName);
 			}
 			else
 			{

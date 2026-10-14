@@ -245,10 +245,50 @@ Sites corrigés : `UserData.GetDescriptorForType`, `ParameterDescriptor.ToString
 
 Le verdict FINAL appartient à l'AssemblyScanner du jeu au chargement (étape 8).
 
-## Étape 8 — Mod POC « ScriptingMod » + test en jeu
+## Étape 8 — Test en jeu, verdict scanner #1 (UNE violation, corrigée)
 
-*(à compléter : Mod.xml à 2 assemblies, code C# du POC (hello, bench, watchdog),
-résultats console, verdict scanner)*
+Résultat du premier test en jeu (l'utilisateur a relancé, OCR de la console) :
+
+```
+[Security] You are not allowed to use System.IO.StreamReader
+   (used in MoonSharp.Interpreter.DynValue MoonSharp.Interpreter.Script::LoadStream(...))
+[Security] Not loading MoonSharp.Interpreter.dll
+Referenced assembly did not validate: MoonSharp.Interpreter → ScriptingMod pas charge
+```
+
+**Le scanner fonctionne exactement comme décodé** (erreur précise = type + méthode), et il
+n'y avait qu'**UNE** violation : `System.IO.StreamReader` dans `Script.LoadStream`.
+
+### Deuxième leçon whitelist (M0) — à retenir
+
+La whitelist d'`AssemblyScanner` est une liste de **types pleinement qualifiés** :
+`System.IO.Stream`, `TextReader`, `TextWriter`, `BinaryReader`, `BinaryWriter`,
+`MemoryStream`, `Path`, `SeekOrigin`. **`StreamReader`/`StreamWriter` n'en font PAS
+partie** (ce sont des classes concrètes distinctes de TextReader/TextWriter) :
+*le fait qu'un nom de type CONTIENNE un nom whitelisté ne suffit pas — l'égalité doit
+être exacte.* Mon contrôle ikdasm de l'étape 7 avait filtré par sous-chaîne
+(`grep -vE "Stream|..."`) — trop lâche : `StreamReader` contenait « Stream » et est
+passé. **Toujours comparer à la liste exacte** (la méthode fiable : uniq des tokens
+`System.IO[.A-Za-z]*` dans l'IL, comparé au à la liste blanche, ou directement le
+verdict du scanner en jeu).
+
+### Correctif
+
+`Script.cs` `LoadStream` : `new StreamReader(stream).ReadToEnd()` → lecture manuelle
+`Stream.Read` + `System.Text.Encoding.UTF8.GetString` (les deux whitelistés).
+NB : le correctif ne ferme plus le flux — conforme à la doc amont (« This will NOT
+close the stream », le `using StreamReader` amont le violait silencieusement).
+
+Vérification IL post-fix : `Stream×126, BinaryWriter×51, BinaryReader×47,
+MemoryStream×7, SeekOrigin×4, TextWriter×2` — tous whitelistés ; le seul
+`System.IO.File` restant est un `ldstr` (message d'erreur de ByteCode.Dump), pas un
+typeref. `ScriptingMod.dll` déjà propre.
+
+Autre constat du test : `addmodsdir` OK, GUID généré et inséré dans `Mod.xml`
+(`64dffd8d-80ec-465e-9a68-78535b2c1223`). Le message « connection request failed » =
+serveur master MP de Besiege injoignable (sans rapport).
+
+*(à compléter : verdict scanner #2 après relance du jeu + hello/bench/watchdog)*
 
 ## Étape 9 — Conclusions M0 et mise à jour des documents
 

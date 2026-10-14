@@ -73,6 +73,11 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
    `System.Reflection.MemberInfo::get_Name()` et le scanner le rejette (le type
    déclarant est dans `System.Reflection`). Toujours `.FullName` (déclaré sur
    `System.Type`, autorisé). Vérifié empiriquement au M0 (journal, étape 7).
+7. **La whitelist System.IO est une liste de types EXACTS** (`Stream`, `TextReader`,
+   `TextWriter`, `BinaryReader`, `BinaryWriter`, `MemoryStream`, `Path`, `SeekOrigin`) :
+   `StreamReader`/`StreamWriter` sont interdits (vérifié en jeu au M0). Ne jamais
+   supposer qu'un type est whitelisté parce que son nom ressemble — contrôler
+   `AssemblyScanner.cs` ou l'IL compilé (ikdasm), ou laisser le scanner parler.
 
 ## Documentation
 

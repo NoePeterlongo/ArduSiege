@@ -340,6 +340,8 @@ Règles d'or imposées par le scanner (à respecter dans tout le code du mod) :
 
 ## Annexe — sources externes clés
 
+- **Workflow d'écriture des scripts (parcours joueur, décisions D1–D8, points reportés) :
+  `docs/workflow-scripting.md`** — complète la présente étude.
 - MoonSharp : `github.com/moonsharp-devs/moonsharp` (tag v2.0.0.0), `moonsharp.org`, NuGet
   `MoonSharp/2.0.0` (cible net35)
 - UniLua : `github.com/xebecnan/UniLua` (MIT)

@@ -76,7 +76,10 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
   (extrait texte : `docs/modding-doc.txt` — cherchable avec grep).
 - Code du jeu décompilé : `decomp/` (regénérable, gitignoré) — la seule source de vérité
   quand la doc est silencieuse (ex. mécanisme de la liste noire, émulation de touches).
-- Étude d'architecture du mod de scripting : `docs/etude-faisabilite-scripting.md`.
+- Étude d'architecture du mod de scripting : `docs/etude-faisabilite-scripting.md`
+  (faisabilité, canaux capteurs/actionneurs, adressage des blocs, jalons M0-M5).
+- Workflow d'écriture des scripts et décisions D1-D8 : `docs/workflow-scripting.md`
+  (parcours joueur complet, persistance `.bsg`, watchdog, points reportés).
 
 ## Conventions de travail
 
@@ -85,3 +88,4 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
   entrer dans un niveau — les mods se chargent à l'entrée en partie, pas au lancement).
 - Après premier chargement d'un nouveau mod : commiter le GUID inséré dans son `Mod.xml`.
 - Ne jamais commiter : `Besiege/`, `decomp/`, `*.dll`, logs.
+- Documenter précisément, pour aider à la reprise du travail par un autre agent IA.

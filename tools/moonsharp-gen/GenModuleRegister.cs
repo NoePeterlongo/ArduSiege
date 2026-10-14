@@ -54,8 +54,10 @@ class GenModuleRegister
 		const BindingFlags StaticFlags = BindingFlags.Public | BindingFlags.Static;
 
 		// Tous les modules du namespace CoreLib avec [MoonSharpModule]
+		// NB : les classes de modules MoonSharp ne sont NI abstract NI static —
+		// de simples classes publiques avec membres statiques.
 		List<Type> modules = asm.GetTypes()
-			.Where(t => t.IsClass && t.IsAbstract && t.Namespace == "MoonSharp.Interpreter.CoreLib")
+			.Where(t => t.IsClass && !t.IsGenericTypeDefinition && t.Namespace == "MoonSharp.Interpreter.CoreLib")
 			.Where(t => t.GetCustomAttributes(modAttrT, false).Length > 0)
 			.Where(t => !skip.Contains(t.Name))
 			.OrderBy(t => t.Name, StringComparer.Ordinal)
@@ -115,8 +117,7 @@ class GenModuleRegister
 				if (ps.Length == 2 && ps[0].ParameterType.Name == "Table" && ps[1].ParameterType.Name == "Table")
 				{
 					init = cand;
-						break;
-					}
+					break;
 				}
 			}
 			if (init != null)
@@ -146,7 +147,7 @@ class GenModuleRegister
 				}
 
 				sb.AppendLine("\t\t\tns.Set(" + CSharpString(name) + ", DynValue.NewCallback(" +
-					m.FullName.Replace('+', '.') + "." + mi.Name + ", " + CSharpString(name) + "));");
+					m.FullName.Replace('+', '.') + "." + MemberName(mi.Name) + ", " + CSharpString(name) + "));");
 			}
 
 			// Champs-Lua [MoonSharpModuleMethod] (string : source Lua compilee a l'enregistrement)
@@ -188,9 +189,19 @@ class GenModuleRegister
 				}
 				else if (fi.FieldType == typeof(double))
 				{
+					// Emission via double.Parse : certains litteraux (double.MaxValue =
+					// 1.797...E+308) font echouer le parseur de mcs a la compilation.
 					double d = (double)fi.GetValue(null);
-					string lit = double.IsNaN(d) ? "double.NaN" : double.IsNegativeInfinity(d) ? "double.NegativeInfinity" : double.IsPositiveInfinity(d) ? "double.PositiveInfinity" : d.ToString(System.Globalization.CultureInfo.InvariantCulture);
-					sb.AppendLine("\t\t\tns.Set(" + CSharpString(name) + ", DynValue.NewNumber(" + lit + "));");
+					string expr;
+					if (double.IsNaN(d)) expr = "double.NaN";
+					else if (double.IsPositiveInfinity(d)) expr = "double.PositiveInfinity";
+					else if (double.IsNegativeInfinity(d)) expr = "double.NegativeInfinity";
+					else
+					{
+						string lit = d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+						expr = "double.Parse(" + CSharpString(lit) + ", System.Globalization.CultureInfo.InvariantCulture)";
+					}
+					sb.AppendLine("\t\t\tns.Set(" + CSharpString(name) + ", DynValue.NewNumber(" + expr + "));");
 				}
 				else
 				{
@@ -212,6 +223,27 @@ class GenModuleRegister
 	}
 
 	// Litteral C# echappe (", \\, \r, \n, \t) — pas de verbatim strings (robuste quel que soit le contenu Lua).
+	// Identifiant de membre : prefixe '@' si le nom est un mot-cle C#.
+	// En amont, ces methodes sont declarees "@null", "@byte", "@char" (StringModule,
+	// JsonModule...) : la reflexion rend le nom SANS le '@' (mi.Name = "null"), qu'il
+	// faut restituer pour que le code genere compile.
+	static HashSet<string> csharpKeywords = new HashSet<string>(new string[] {
+		"abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+		"class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else",
+		"enum", "event", "explicit", "extern", "false", "finally", "fixed", "float", "for",
+		"foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
+		"long", "namespace", "new", "null", "object", "operator", "out", "override", "params",
+		"private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
+		"sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true",
+		"try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual",
+		"void", "volatile", "while"
+	});
+
+	static string MemberName(string name)
+	{
+		return csharpKeywords.Contains(name) ? "@" + name : name;
+	}
+
 	static string CSharpString(string s)
 	{
 		if (s == null) return "\"\"";

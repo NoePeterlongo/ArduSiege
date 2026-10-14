@@ -1,0 +1,12 @@
+<Mod>
+    <Name>ScriptingMod</Name>
+    <Author>noe</Author>
+    <Version>0.0.1</Version>
+    <Description>M0 : POC moteur Lua MoonSharp elague (hello + bench + watchdog). Pas de bloc, pas de gameplay.</Description>
+    <MultiplayerCompatible>false</MultiplayerCompatible>
+    <Debug>true</Debug>
+    <Assemblies>
+        <Assembly path="MoonSharp.Interpreter.dll" />
+        <Assembly path="ScriptingMod.dll" />
+    </Assemblies>
+</Mod>

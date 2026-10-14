@@ -17,37 +17,9 @@ namespace MoonSharp.Interpreter.CoreLib
 		[MoonSharpModuleMethod]
 		public static DynValue debug(ScriptExecutionContext executionContext, CallbackArguments args)
 		{
-			Script script = executionContext.GetScript();
-
-			if (script.Options.DebugInput == null)
-				throw new ScriptRuntimeException("debug.debug not supported on this platform/configuration");
-
-			ReplInterpreter interpreter = new ReplInterpreter(script)
-				{
-					HandleDynamicExprs = false,
-					HandleClassicExprsSyntax = true
-				};
-
-			while (true)
-			{
-				string s = script.Options.DebugInput(interpreter.ClassicPrompt + " ");
-
-				try
-				{
-					DynValue result = interpreter.Evaluate(s);
-
-					if (result != null && result.Type != DataType.Void)
-						script.Options.DebugPrint(string.Format("{0}", result));
-				}
-				catch (InterpreterException ex)
-				{
-					script.Options.DebugPrint(string.Format("{0}", ex.DecoratedMessage ?? ex.Message));
-				}
-				catch (Exception ex)
-				{
-					script.Options.DebugPrint(string.Format("{0}", ex.Message));
-				}
-			}
+			// [TRIMMED — mod ScriptingMod Besiege] Le REPL interactif (ReplInterpreter)
+			// est retire de ce build ; debug.debug n'est pas supporte.
+			throw new ScriptRuntimeException("debug.debug not supported in this trimmed build (REPL removed)");
 		}
 
 		[MoonSharpModuleMethod]

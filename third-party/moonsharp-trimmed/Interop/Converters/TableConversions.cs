@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using MoonSharp.Interpreter.Compatibility;
 
 namespace MoonSharp.Interpreter.Interop.Converters
 {

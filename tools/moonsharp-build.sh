@@ -30,13 +30,13 @@ REGEN=0
 
 # ---- Sources amont (mode --regen uniquement) ------------------------------------
 if [ "$REGEN" = "1" ]; then
-    SRC="$UPSTREAM_DIR/moonsharp-$TAG/src/MoonSharp.Interpreter"
+    SRC="$UPSTREAM_DIR/moonsharp-2.0.0.0/src/MoonSharp.Interpreter"
     if [ ! -d "$SRC" ]; then
         echo ">> Telechargement des sources MoonSharp $TAG..."
         mkdir -p "$UPSTREAM_DIR"
+        # NB : l'archive GitHub du tag v2.0.0.0 s'extrait dans moonsharp-2.0.0.0 (le 'v' est retire)
         curl -sSL "https://github.com/moonsharp-devs/moonsharp/archive/refs/tags/$TAG.tar.gz" \
             | tar xz -C "$UPSTREAM_DIR"
-        mv "$UPSTREAM_DIR/moonsharp-$TAG" "$UPSTREAM_DIR/moonsharp-$TAG" 2>/dev/null || true
     fi
     STAGE="$UPSTREAM_DIR/stage-full"
     rm -rf "$STAGE"

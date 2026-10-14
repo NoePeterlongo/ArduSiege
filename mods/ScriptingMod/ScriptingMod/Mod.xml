@@ -1,16 +1,23 @@
 ﻿<Mod>
     <Name>ScriptingMod</Name>
     <Author>noe</Author>
-    <Version>0.0.1</Version>
-    <Description>M0 : POC moteur Lua MoonSharp elague (hello + bench + watchdog). Pas de bloc, pas de gameplay.</Description>
+    <Version>0.1.0</Version>
+    <Description>Moteur de scripting Lua embarque + bloc Microcontroller : capteurs, actionneurs, boucles de controle. M1.</Description>
     <MultiplayerCompatible>false</MultiplayerCompatible>
     <Debug>true</Debug>
     <Assemblies>
         <Assembly path="MoonSharp.Interpreter.dll" />
         <Assembly path="ScriptingMod.dll" />
     </Assemblies>
+    <Resources>
+        <Mesh name="microcontroller-mesh" path="microcontroller.obj" />
+        <Texture name="microcontroller-tex" path="microcontroller.png" />
+    </Resources>
+    <Blocks>
+        <Block path="MicrocontrollerBlock.xml" />
+    </Blocks>
 
 
 <!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
-<ID>64dffd8d-00ec-465e-9a68-78535b2c1223</ID>
+<ID>a1d11e61-bc2c-4818-8442-c5e09ce1da88</ID>
 </Mod>

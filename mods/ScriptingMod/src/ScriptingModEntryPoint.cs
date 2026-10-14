@@ -78,8 +78,54 @@ namespace ScriptingMod
             ModConsole.RegisterCommand("watchdog", WatchdogCommand,
                 "watchdog — lance une boucle infinie Lua : doit etre interrompue par la watchdog");
 
+            // 6. M1 : seed de la bibliotheque de scripts (dossier data du mod)
+            SeedScriptLibrary();
+
             ModConsole.Log("[ScriptingMod] M0 pret. Commandes : lua \"<code>\", bench, watchdog");
         }
+
+        // --- M1 : bibliotheque de scripts (dossier data persistant du mod) ---
+
+        private const string SCRIPTS_DIR = "Scripts";
+
+        private static void SeedScriptLibrary()
+        {
+            try
+            {
+                if (!Modding.ModIO.ExistsDirectory(SCRIPTS_DIR, data: true))
+                {
+                    Modding.ModIO.CreateDirectory(SCRIPTS_DIR, data: true);
+                }
+                if (Modding.ModIO.GetFiles(SCRIPTS_DIR, "*.lua", data: true).Length == 0)
+                {
+                    Modding.ModIO.WriteAllText(SCRIPTS_DIR + "/hello.lua", HELLO_LUA, data: true);
+                    ModConsole.Log("[ScriptingMod] bibliotheque : hello.lua installe (dossier data)");
+                }
+            }
+            catch (Exception ex)
+            {
+                ModConsole.Log("[ScriptingMod] ERREUR seed bibliotheque : " + ex.Message);
+            }
+        }
+
+        private const string HELLO_LUA =
+            "-- hello.lua : script de demonstration du Microcontroleur (M1)\n" +
+            "local ticks = 0\n" +
+            "\n" +
+            "function on_sim_start()\n" +
+            "    print(\"script demarre : boucle on_tick a 50 Hz\")\n" +
+            "end\n" +
+            "\n" +
+            "function on_tick()\n" +
+            "    ticks = ticks + 1\n" +
+            "    if ticks % 50 == 0 then\n" +
+            "        print(ticks .. \" ticks (\" .. (ticks / 50) .. \" s de simulation)\")\n" +
+            "    end\n" +
+            "end\n" +
+            "\n" +
+            "function on_sim_stop()\n" +
+            "    print(\"script arrete apres \" .. ticks .. \" ticks\")\n" +
+            "end\n";
 
         // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---
 

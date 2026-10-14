@@ -78,6 +78,13 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
    `StreamReader`/`StreamWriter` sont interdits (vérifié en jeu au M0). Ne jamais
    supposer qu'un type est whitelisté parce que son nom ressemble — contrôler
    `AssemblyScanner.cs` ou l'IL compilé (ikdasm), ou laisser le scanner parler.
+8. **Ne jamais éditer `Mod.xml` (ni les fichiers du mod) jeu ouvert** : le loader
+   (mode Debug) surveille `*.xml` et recharge à chaud — une réécriture sans `<ID>` fait
+   **régénérer le GUID** du mod (perte d'identité = machines sauvegardées orphelines).
+   Éditer les fichiers du mod jeu fermé.
+9. **Toujours écrire `Modding.ModIO.Xxx`** (qualifié) : le jeu a un namespace global
+   `ModIO` (IO interne, blacklisté) qui masque la classe `Modding.ModIO` dans la
+   résolution de noms C# — `ModIO.Xxx` nu ne compile pas dans les mods.
 
 ## Documentation
 

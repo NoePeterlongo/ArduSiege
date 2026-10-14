@@ -22,7 +22,8 @@ mcs -nostdlib -noconfig -target:library -optimize+ \
     -r:\$GAME/Assembly-CSharp.dll -r:\$GAME/UnityEngine.dll \
     -r:/work/mods/ScriptingMod/ScriptingMod/MoonSharp.Interpreter.dll \
     /work/mods/ScriptingMod/src/WatchdogDebugger.cs \
-    /work/mods/ScriptingMod/src/ScriptingModEntryPoint.cs
+    /work/mods/ScriptingMod/src/ScriptingModEntryPoint.cs \
+    /work/mods/ScriptingMod/src/MicrocontrollerScript.cs
 
 echo \">> BUILD OK\"
 '"

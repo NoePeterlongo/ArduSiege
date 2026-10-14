@@ -1,0 +1,44 @@
+<Block>
+    <Name>Microcontroller</Name>
+    <ID>1</ID>
+    <Mass>0.5</Mass>
+    <SearchKeywords>
+        <Keyword>Script</Keyword>
+        <Keyword>Lua</Keyword>
+    </SearchKeywords>
+    <Script>ScriptingMod.MicrocontrollerScript</Script>
+
+    <Mesh name="microcontroller-mesh">
+        <Position x="0.0" y="0.0" z="0.0" />
+        <Rotation x="0.0" y="0.0" z="0.0" />
+        <Scale x="1.0" y="1.0" z="1.0" />
+    </Mesh>
+    <Texture name="microcontroller-tex" />
+
+    <Icon>
+        <Position x="0.0" y="0.0" z="0.0" />
+        <Rotation x="0.0" y="0.0" z="0.0" />
+        <Scale x="1.0" y="1.0" z="1.0" />
+    </Icon>
+
+    <Colliders>
+        <BoxCollider>
+            <Position x="0.0" y="0.0" z="0.0" />
+            <Rotation x="0.0" y="0.0" z="0.0" />
+            <Scale x="0.5" y="0.5" z="0.5" />
+        </BoxCollider>
+    </Colliders>
+
+    <BasePoint hasAddingPoint="true">
+        <Stickiness enabled="true" radius="0.6" />
+        <Motion x="false" y="false" z="false" />
+    </BasePoint>
+
+    <AddingPoints>
+        <AddingPoint>
+            <Position x="0.0" y="0.25" z="0.0" />
+            <Rotation x="0.0" y="0.0" z="0.0" />
+            <Stickiness enabled="true" radius="0.6" />
+        </AddingPoint>
+    </AddingPoints>
+</Block>

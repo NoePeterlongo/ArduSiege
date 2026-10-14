@@ -101,6 +101,12 @@ namespace ScriptingMod
                     Modding.ModIO.WriteAllText(SCRIPTS_DIR + "/hello.lua", HELLO_LUA, data: true);
                     ModConsole.Log("[ScriptingMod] bibliotheque : hello.lua installe (dossier data)");
                 }
+                // M2 : demo capteurs — installee si absente (jamais ecrasee)
+                if (!Modding.ModIO.ExistsFile(SCRIPTS_DIR + "/capteurs.lua", data: true))
+                {
+                    Modding.ModIO.WriteAllText(SCRIPTS_DIR + "/capteurs.lua", CAPTEURS_LUA, data: true);
+                    ModConsole.Log("[ScriptingMod] bibliotheque : capteurs.lua installe (demo M2)");
+                }
             }
             catch (Exception ex)
             {
@@ -108,8 +114,7 @@ namespace ScriptingMod
             }
         }
 
-        private const string HELLO_LUA =
-            "-- hello.lua : script de demonstration du Microcontroleur (M1)\n" +
+        private const string HELLO_LUA =            "-- hello.lua : script de demonstration du Microcontroleur (M1)\n" +
             "local ticks = 0\n" +
             "\n" +
             "function on_sim_start()\n" +
@@ -125,6 +130,37 @@ namespace ScriptingMod
             "\n" +
             "function on_sim_stop()\n" +
             "    print(\"script arrete apres \" .. ticks .. \" ticks\")\n" +
+            "end\n";
+
+        // Demo M2 : lecture des capteurs (self, machine, input)
+        private const string CAPTEURS_LUA =
+            "-- capteurs.lua : demo de l'API capteurs (M2)\n" +
+            "-- expose : self (ce bloc), machine (les blocs), input (le clavier REEL)\n" +
+            "local ticks = 0\n" +
+            "\n" +
+            "function on_sim_start()\n" +
+            "    print(\"capteurs : machine de \" .. machine.block_count .. \" blocs, masse \" .. string.format(\"%.0f\", machine.mass))\n" +
+            "    local par_type = {}\n" +
+            "    for _, b in ipairs(machine:blocks()) do\n" +
+            "        par_type[b.type] = (par_type[b.type] or 0) + 1\n" +
+            "    end\n" +
+            "    for t, n in pairs(par_type) do\n" +
+            "        print(\"  - \" .. t .. \" x\" .. n)\n" +
+            "    end\n" +
+            "end\n" +
+            "\n" +
+            "function on_tick()\n" +
+            "    ticks = ticks + 1\n" +
+            "    if ticks % 50 ~= 0 then return end\n" +
+            "    local p = self.position\n" +
+            "    local v = self.velocity\n" +
+            "    local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)\n" +
+            "    print(string.format(\"t=%ds  pos=(%.1f, %.1f, %.1f)  |v|=%.2f  espace=%s\",\n" +
+            "        ticks / 50, p.x, p.y, p.z, speed, tostring(input:is_held(\"Space\"))))\n" +
+            "end\n" +
+            "\n" +
+            "function on_sim_stop()\n" +
+            "    print(\"capteurs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
         // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---

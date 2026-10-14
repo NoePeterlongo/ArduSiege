@@ -85,6 +85,10 @@ namespace ScriptingMod
                 m_Watchdog = new WatchdogDebugger(WATCHDOG_BUDGET);
                 m_Lua.AttachDebugger(m_Watchdog);
 
+                // M2 : API capteurs (self, machine, input) — avant DoString pour
+                // que le script puisse les utiliser des on_sim_start.
+                LuaApi.Install(m_Lua, this);
+
                 m_Watchdog.Reset();
                 m_Lua.DoString(source, null, m_ScriptName);
                 CallIfDefined("on_sim_start");

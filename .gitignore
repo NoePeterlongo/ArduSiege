@@ -12,3 +12,6 @@ decomp/
 # Code du generateur ModuleRegister (rebuild uniquement)
 tools/moonsharp-gen/bin/
 tools/moonsharp-gen/obj/
+
+# Sources amont MoonSharp (telechargees par moonsharp-build.sh --regen)
+third-party/.upstream/

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using MoonSharp.Interpreter.Interop;
-using System.Reflection;
 
 namespace MoonSharp.Interpreter
 {
@@ -77,65 +76,15 @@ namespace MoonSharp.Interpreter
 			}
 		}
 
-		/// <summary>
-		/// Creates a CallbackFunction from a delegate.
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="del">The delegate.</param>
-		/// <param name="accessMode">The access mode.</param>
-		/// <returns></returns>
-		public static CallbackFunction FromDelegate(Script script, Delegate del, InteropAccessMode accessMode = InteropAccessMode.Default)
-		{
-			if (accessMode == InteropAccessMode.Default)
-				accessMode = m_DefaultAccessMode;
-
-#if NETFX_CORE
-			MethodMemberDescriptor descr = new MethodMemberDescriptor(del.GetMethodInfo(), accessMode);
-#else
-			MethodMemberDescriptor descr = new MethodMemberDescriptor(del.Method, accessMode);
-#endif
-			return descr.GetCallbackFunction(script, del.Target);
-		}
-
-
-		/// <summary>
-		/// Creates a CallbackFunction from a MethodInfo relative to a function.
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="mi">The MethodInfo object.</param>
-		/// <param name="obj">The object to which the function applies, or null for static methods.</param>
-		/// <param name="accessMode">The access mode.</param>
-		/// <returns></returns>
-		/// <exception cref="System.ArgumentException">The method is not static.</exception>
-		public static CallbackFunction FromMethodInfo(Script script, System.Reflection.MethodInfo mi, object obj = null, InteropAccessMode accessMode = InteropAccessMode.Default)
-		{
-			if (accessMode == InteropAccessMode.Default)
-				accessMode = m_DefaultAccessMode;
-
-			MethodMemberDescriptor descr = new MethodMemberDescriptor(mi, accessMode);
-			return descr.GetCallbackFunction(script, obj);
-		}
-
-
+		// [TRIMMED — mod ScriptingMod Besiege] FromDelegate, FromMethodInfo et
+		// CheckCallbackSignature supprimés : ils s'appuient sur System.Reflection
+		// (interdit par l'AssemblyScanner). Le constructeur par délégué reste le
+		// chemin officiel du mod. Voir third-party/README.md.
 
 		/// <summary>
 		/// Gets or sets an object used as additional data to the callback function (available in the execution context).
 		/// </summary>
 		public object AdditionalData { get; set; }
-
-
-		/// <summary>
-		/// Checks the callback signature of a method is compatible for callbacks
-		/// </summary>
-		public static bool CheckCallbackSignature(System.Reflection.MethodInfo mi, bool requirePublicVisibility)
-		{
-			System.Reflection.ParameterInfo[] pi = mi.GetParameters();
-
-			return (pi.Length == 2 && pi[0].ParameterType == typeof(ScriptExecutionContext)
-				&& pi[1].ParameterType == typeof(CallbackArguments) && mi.ReturnType == typeof(DynValue) && (requirePublicVisibility || mi.IsPublic));
-		}
-
-
 
 	}
 }

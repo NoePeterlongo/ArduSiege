@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Linq;
 using MoonSharp.Interpreter.Interop;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.RegistrationPolicies;
-using MoonSharp.Interpreter.Interop.StandardDescriptors;
-using MoonSharp.Interpreter.Interop.UserDataRegistries;
 using MoonSharp.Interpreter.Serialization.Json;
 
 namespace MoonSharp.Interpreter
@@ -14,6 +10,16 @@ namespace MoonSharp.Interpreter
 	/// <summary>
 	/// Class exposing C# objects as Lua userdata.
 	/// For efficiency, a global registry of types is maintained, instead of a per-script one.
+	///
+	/// [TRIMMED — mod ScriptingMod Besiege] Le registre interop réflexif
+	/// (TypeDescriptorRegistry, descripteurs par réflexion) est interdit par
+	/// l'AssemblyScanner du mod loader Besiege. Il est remplacé par :
+	///   - les objets implémentant IUserDataType (auto-descripteurs), servis par
+	///     AutoDescribingUserDataDescriptor — c'est le chemin utilisé par la VM
+	///     (itérateurs « for » génériques via EnumerableWrapper) ;
+	///   - les descripteurs explicites via Create(object, IUserDataDescriptor).
+	/// Tout autre usage lève NotSupportedException. Voir third-party/README.md
+	/// et docs/journal-m0.md (décisions D-M0-2).
 	/// </summary>
 	public class UserData : RefIdObject
 	{
@@ -38,168 +44,118 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public IUserDataDescriptor Descriptor { get; private set; }
 
-
-
-		static UserData()
-		{
-			RegistrationPolicy = InteropRegistrationPolicy.Default;
-
-			RegisterType<EventFacade>(InteropAccessMode.NoReflectionAllowed);
-			RegisterType<AnonWrapper>(InteropAccessMode.HideMembers);
-			RegisterType<EnumerableWrapper>(InteropAccessMode.NoReflectionAllowed);
-			RegisterType<JsonNull>(InteropAccessMode.Reflection);
-
-			DefaultAccessMode = InteropAccessMode.LazyOptimized;
-		}
+		/// <summary>
+		/// Gets or sets the registration policy (kept for API compatibility; the
+		/// reflection registry is gone in this trimmed build).
+		/// </summary>
+		public static IRegistrationPolicy RegistrationPolicy { get; set; }
 
 		/// <summary>
-		/// Registers a type for userdata interop
+		/// Gets or sets the default access mode (kept for API compatibility).
 		/// </summary>
-		/// <typeparam name="T">The type to be registered</typeparam>
-		/// <param name="accessMode">The access mode (optional).</param>
-		/// <param name="friendlyName">Friendly name for the type (optional)</param>
+		public static InteropAccessMode DefaultAccessMode { get; set; }
+
+		private const string TRIMMED_MSG =
+			"[ScriptingMod] Reflection-based userdata registration is not available in this trimmed MoonSharp build. " +
+			"Use IUserDataType-implementing objects or explicit descriptors (UserData.Create(object, IUserDataDescriptor)).";
+
+		/// <summary>
+		/// Registers a type for userdata interop — NOT available in this build.
+		/// </summary>
 		public static IUserDataDescriptor RegisterType<T>(InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
 		{
-			return TypeDescriptorRegistry.RegisterType_Impl(typeof(T), accessMode, friendlyName, null);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Registers a type for userdata interop
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <param name="type">The type to be registered</param>
-		/// <param name="accessMode">The access mode (optional).</param>
-		/// <param name="friendlyName">Friendly name for the type (optional)</param>
 		public static IUserDataDescriptor RegisterType(Type type, InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
 		{
-			return TypeDescriptorRegistry.RegisterType_Impl(type, accessMode, friendlyName, null);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
-
 		/// <summary>
-		/// Registers a proxy type.
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <param name="proxyFactory">The proxy factory.</param>
-		/// <param name="accessMode">The access mode.</param>
-		/// <param name="friendlyName">A friendly name for the descriptor.</param>
-		/// <returns></returns>
 		public static IUserDataDescriptor RegisterProxyType(IProxyFactory proxyFactory, InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
 		{
-			return TypeDescriptorRegistry.RegisterProxyType_Impl(proxyFactory, accessMode, friendlyName);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Registers a proxy type using a delegate.
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <typeparam name="TProxy">The type of the proxy.</typeparam>
-		/// <typeparam name="TTarget">The type of the target.</typeparam>
-		/// <param name="wrapDelegate">A delegate creating a proxy object from a target object.</param>
-		/// <param name="accessMode">The access mode.</param>
-		/// <param name="friendlyName">A friendly name for the descriptor.</param>
-		/// <returns></returns>
 		public static IUserDataDescriptor RegisterProxyType<TProxy, TTarget>(Func<TTarget, TProxy> wrapDelegate, InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
-			where TProxy : class
-			where TTarget : class
 		{
-			return RegisterProxyType(new DelegateProxyFactory<TProxy, TTarget>(wrapDelegate), accessMode, friendlyName);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
-
-
 		/// <summary>
-		/// Registers a type with a custom userdata descriptor
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <typeparam name="T">The type to be registered</typeparam>
-		/// <param name="customDescriptor">The custom descriptor.</param>
 		public static IUserDataDescriptor RegisterType<T>(IUserDataDescriptor customDescriptor)
 		{
-			return TypeDescriptorRegistry.RegisterType_Impl(typeof(T), InteropAccessMode.Default, null, customDescriptor);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Registers a type with a custom userdata descriptor
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <param name="type">The type to be registered</param>
-		/// <param name="customDescriptor">The custom descriptor.</param>
 		public static IUserDataDescriptor RegisterType(Type type, IUserDataDescriptor customDescriptor)
 		{
-			return TypeDescriptorRegistry.RegisterType_Impl(type, InteropAccessMode.Default, null, customDescriptor);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Registers a type with a custom userdata descriptor
+		/// Registers a type for userdata interop — NOT available in this build.
 		/// </summary>
-		/// <param name="customDescriptor">The custom descriptor.</param>
 		public static IUserDataDescriptor RegisterType(IUserDataDescriptor customDescriptor)
 		{
-			return TypeDescriptorRegistry.RegisterType_Impl(customDescriptor.Type, InteropAccessMode.Default, null, customDescriptor);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
-
 		/// <summary>
-		/// Registers all types marked with a MoonSharpUserDataAttribute that ar contained in an assembly.
+		/// Registers a full assembly for interop — NOT available in this build.
+		/// [TRIMMED] Signature amputée du paramètre System.Reflection.Assembly (namespace
+		/// interdit ; aucune méthode appelante ne subsiste dans ce build).
 		/// </summary>
-		/// <param name="asm">The assembly.</param>
-		/// <param name="includeExtensionTypes">if set to <c>true</c> extension types are registered to the appropriate registry.</param>
-		public static void RegisterAssembly(Assembly asm = null, bool includeExtensionTypes = false)
+		public static void RegisterAssembly(bool includeExtensionTypes = false)
 		{
-			if (asm == null)
-			{
-				#if NETFX_CORE || DOTNET_CORE
-					throw new NotSupportedException("Assembly.GetCallingAssembly is not supported on target framework.");
-				#else
-					asm = Assembly.GetCallingAssembly();
-				#endif
-			}
-
-			TypeDescriptorRegistry.RegisterAssembly(asm, includeExtensionTypes);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Determines whether the specified type is registered. Note that this should be used only to check if a descriptor
-		/// has been registered EXACTLY. For many types a descriptor can still be created, for example through the descriptor
-		/// of a base type or implemented interfaces.
+		/// Determines whether a type is registered — always false for reflection-registered
+		/// types in this build (IUserDataType are dynamic and not "registered").
 		/// </summary>
-		/// <param name="t">The type.</param>
-		/// <returns></returns>
 		public static bool IsTypeRegistered(Type t)
 		{
-			return TypeDescriptorRegistry.IsTypeRegistered(t);
+			return false;
 		}
 
 		/// <summary>
-		/// Determines whether the specified type is registered. Note that this should be used only to check if a descriptor
-		/// has been registered EXACTLY. For many types a descriptor can still be created, for example through the descriptor
-		/// of a base type or implemented interfaces.
+		/// Determines whether a type is registered — see IsTypeRegistered(Type).
 		/// </summary>
-		/// <typeparam name="T">The type.</typeparam>
-		/// <returns></returns>
 		public static bool IsTypeRegistered<T>()
 		{
-			return TypeDescriptorRegistry.IsTypeRegistered(typeof(T));
+			return false;
 		}
 
 		/// <summary>
-		/// Unregisters a type. 
-		/// WARNING: unregistering types at runtime is a dangerous practice and may cause unwanted errors.
-		/// Use this only for testing purposes or to re-register the same type in a slightly different way.
-		/// Additionally, it's a good practice to discard all previous loaded scripts after calling this method.
+		/// Unregisters a type — NOT available in this build.
 		/// </summary>
-		/// <typeparam name="T">The type to be unregistered</typeparam>
 		public static void UnregisterType<T>()
 		{
-			TypeDescriptorRegistry.UnregisterType(typeof(T));
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Unregisters a type.
-		/// WARNING: unregistering types at runtime is a dangerous practice and may cause unwanted errors.
-		/// Use this only for testing purposes or to re-register the same type in a slightly different way.
-		/// Additionally, it's a good practice to discard all previous loaded scripts after calling this method.
+		/// Unregisters a type — NOT available in this build.
 		/// </summary>
-		/// <param name="t">The The type to be unregistered</param>
 		public static void UnregisterType(Type t)
 		{
-			TypeDescriptorRegistry.UnregisterType(t);
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
@@ -218,7 +174,9 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Creates a userdata DynValue from the specified object
+		/// Creates a userdata DynValue from the specified object.
+		/// In this build, only IUserDataType-implementing objects are supported
+		/// (served through AutoDescribingUserDataDescriptor).
 		/// </summary>
 		/// <param name="o">The object</param>
 		/// <returns></returns>
@@ -227,9 +185,6 @@ namespace MoonSharp.Interpreter
 			var descr = GetDescriptorForObject(o);
 			if (descr == null)
 			{
-				if (o is Type)
-					return CreateStatic((Type)o);
-
 				return null;
 			}
 
@@ -253,149 +208,78 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Creates a static userdata DynValue from the specified Type
+		/// Creates a static userdata DynValue from the specified Type — NOT available
+		/// in this build (no reflection registry).
 		/// </summary>
 		/// <param name="t">The type</param>
 		/// <returns></returns>
 		public static DynValue CreateStatic(Type t)
 		{
-			return CreateStatic(GetDescriptorForType(t, false));
+			return null;
 		}
 
 		/// <summary>
-		/// Creates a static userdata DynValue from the specified Type
+		/// Creates a static userdata DynValue from the specified Type — NOT available
+		/// in this build (no reflection registry).
 		/// </summary>
 		/// <typeparam name="T">The Type</typeparam>
 		/// <returns></returns>
 		public static DynValue CreateStatic<T>()
 		{
-			return CreateStatic(GetDescriptorForType(typeof(T), false));
+			return null;
 		}
 
 		/// <summary>
-		/// Gets or sets the registration policy to be used in the whole application
+		/// Gets the descriptor of this type, if the type can have one in this build
+		/// (i.e. it implements IUserDataType).
 		/// </summary>
-		public static IRegistrationPolicy RegistrationPolicy
+		public static IUserDataDescriptor GetDescriptorForType(Type t, bool searchInterfaces)
 		{
-			get { return TypeDescriptorRegistry.RegistrationPolicy; }
-			set { TypeDescriptorRegistry.RegistrationPolicy = value; }
+			if (t == null) return null;
+
+			if (typeof(IUserDataType).IsAssignableFrom(t))
+				return new AutoDescribingUserDataDescriptor(t, t.Name);
+
+			return null;
 		}
 
 		/// <summary>
-		/// Gets or sets the default access mode to be used in the whole application
+		/// Gets the descriptor of this type — see GetDescriptorForType.
 		/// </summary>
-		/// <value>
-		/// The default access mode.
-		/// </value>
-		/// <exception cref="System.ArgumentException">InteropAccessMode is InteropAccessMode.Default</exception>
-		public static InteropAccessMode DefaultAccessMode
-		{
-			get { return TypeDescriptorRegistry.DefaultAccessMode; }
-			set { TypeDescriptorRegistry.DefaultAccessMode = value; }
-		}
-
-		/// <summary>
-		/// Registers an extension Type (that is a type containing extension methods)
-		/// </summary>
-		/// <param name="type">The type.</param>
-		/// <param name="mode">The InteropAccessMode.</param>
-		public static void RegisterExtensionType(Type type, InteropAccessMode mode = InteropAccessMode.Default)
-		{
-			ExtensionMethodsRegistry.RegisterExtensionType(type, mode);
-		}
-
-		/// <summary>
-		/// Gets all the extension methods which can match a given name and extending a given Type
-		/// </summary>
-		/// <param name="name">The name.</param>
-		/// <param name="extendedType">The extended type.</param>
-		/// <returns></returns>
-		public static List<IOverloadableMemberDescriptor> GetExtensionMethodsByNameAndType(string name, Type extendedType)
-		{
-			return ExtensionMethodsRegistry.GetExtensionMethodsByNameAndType(name, extendedType);
-		}
-
-		/// <summary>
-		/// Gets a number which gets incremented everytime the extension methods registry changes.
-		/// Use this to invalidate caches based on extension methods
-		/// </summary>
-		/// <returns></returns>
-		public static int GetExtensionMethodsChangeVersion()
-		{
-			return ExtensionMethodsRegistry.GetExtensionMethodsChangeVersion();
-		}
-
-		/// <summary>
-		/// Gets the best possible type descriptor for a specified CLR type.
-		/// </summary>
-		/// <typeparam name="T">The CLR type for which the descriptor is desired.</typeparam>
-		/// <param name="searchInterfaces">if set to <c>true</c> interfaces are used in the search.</param>
-		/// <returns></returns>
 		public static IUserDataDescriptor GetDescriptorForType<T>(bool searchInterfaces)
 		{
-			return TypeDescriptorRegistry.GetDescriptorForType(typeof(T), searchInterfaces);
+			return GetDescriptorForType(typeof(T), searchInterfaces);
+		}
+
+		private static IUserDataDescriptor GetDescriptorForObject(object o)
+		{
+			if (o == null) return null;
+
+			return GetDescriptorForType(o.GetType(), false);
 		}
 
 		/// <summary>
-		/// Gets the best possible type descriptor for a specified CLR type.
+		/// Registers an extension type — NOT available in this build.
 		/// </summary>
-		/// <param name="type">The CLR type for which the descriptor is desired.</param>
-		/// <param name="searchInterfaces">if set to <c>true</c> interfaces are used in the search.</param>
-		/// <returns></returns>
-		public static IUserDataDescriptor GetDescriptorForType(Type type, bool searchInterfaces)
+		public static void RegisterExtensionType(Type type, InteropAccessMode mode = InteropAccessMode.Default)
 		{
-			return TypeDescriptorRegistry.GetDescriptorForType(type, searchInterfaces);
-		}
-
-
-		/// <summary>
-		/// Gets the best possible type descriptor for a specified CLR object.
-		/// </summary>
-		/// <param name="o">The object.</param>
-		/// <returns></returns>
-		public static IUserDataDescriptor GetDescriptorForObject(object o)
-		{
-			return TypeDescriptorRegistry.GetDescriptorForType(o.GetType(), true);
-		}
-
-
-		/// <summary>
-		/// Gets a table with the description of registered types.
-		/// </summary>
-		/// <param name="useHistoricalData">if set to true, it will also include the last found descriptor of all unregistered types.</param>
-		/// <returns></returns>
-		public static Table GetDescriptionOfRegisteredTypes(bool useHistoricalData = false)
-		{
-			DynValue output = DynValue.NewPrimeTable();
-			var registeredTypesPairs = useHistoricalData ? TypeDescriptorRegistry.RegisteredTypesHistory : TypeDescriptorRegistry.RegisteredTypes;
-
-			foreach (var descpair in registeredTypesPairs)
-			{
-				IWireableDescriptor sd = descpair.Value as IWireableDescriptor;
-
-				if (sd != null)
-				{
-					DynValue t = DynValue.NewPrimeTable();
-					output.Table.Set(descpair.Key.FullName, t);
-					sd.PrepareForWiring(t.Table);
-				}
-			}
-
-			return output.Table;
+			throw new NotSupportedException(TRIMMED_MSG);
 		}
 
 		/// <summary>
-		/// Gets all the registered types.
+		/// Gets extension methods by name and type — NOT available in this build.
 		/// </summary>
-		/// <param name="useHistoricalData">if set to true, it will also include the last found descriptor of all unregistered types.</param>
-		/// <returns></returns>
-		public static IEnumerable<Type> GetRegisteredTypes(bool useHistoricalData = false)
+		public static List<IOverloadableMemberDescriptor> GetExtensionMethodsByNameAndType(string name, Type extendedType)
 		{
-			var registeredTypesPairs = useHistoricalData ? TypeDescriptorRegistry.RegisteredTypesHistory : TypeDescriptorRegistry.RegisteredTypes;
-			return registeredTypesPairs.Select(p => p.Value.Type);
+			return null;
 		}
 
-		
-
+		/// <summary>
+		/// Gets the current extension methods version (no extension methods in this build).
+		/// </summary>
+		public static int GetExtensionMethodsChangeVersion()
+		{
+			return 0;
+		}
 	}
 }

@@ -1,10 +1,14 @@
 ﻿using System;
-using System.Reflection;
 using System.Text;
-using MoonSharp.Interpreter.Interop.RegistrationPolicies;
 
 namespace MoonSharp.Interpreter.Interop.Converters
 {
+	/// <summary>
+	/// [TRIMMED — mod ScriptingMod Besiege] Les chemins interop réflexifs (MethodInfo,
+	/// delegates arbitraires, UserData registry) sont supprimés : interdits par
+	/// l'AssemblyScanner. Restent les conversions triviales/primitives, les tables
+	/// (IList/IDictionary) et les énumérations. Voir third-party/README.md (D-M0-2).
+	/// </summary>
 	internal static class ClrToScriptConversions
 	{
 		/// <summary>
@@ -79,20 +83,8 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (obj is CallbackFunction)
 				return DynValue.NewCallback((CallbackFunction)obj);
 
-			if (obj is Delegate)
-			{
-				Delegate d = (Delegate)obj;
-
-
-#if NETFX_CORE
-				MethodInfo mi = d.GetMethodInfo();
-#else
-				MethodInfo mi = d.Method;
-#endif
-
-				if (CallbackFunction.CheckCallbackSignature(mi, false))
-					return DynValue.NewCallback((Func<ScriptExecutionContext, CallbackArguments, DynValue>)d);
-			}
+			// [TRIMMED] The generic Delegate branch (reflection on Delegate.Method) is
+			// removed. CallbackFunction instances are handled just above.
 
 			return null;
 		}
@@ -107,30 +99,9 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 			if (v != null) return v;
 
-			v = UserData.Create(obj);
-			if (v != null) return v;
-
-			if (obj is Type)
-				v = UserData.CreateStatic(obj as Type);
-
 			// unregistered enums go as integers
 			if (obj is Enum)
 				return DynValue.NewNumber(NumericConversions.TypeToDouble(Enum.GetUnderlyingType(obj.GetType()), obj));
-
-			if (v != null) return v;
-
-			if (obj is Delegate)
-				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)obj));
-
-			if (obj is MethodInfo)
-			{
-				MethodInfo mi = (MethodInfo)obj;
-
-				if (mi.IsStatic)
-				{
-					return DynValue.NewCallback(CallbackFunction.FromMethodInfo(script, mi));
-				}
-			}
 
 			if (obj is System.Collections.IList)
 			{
@@ -173,8 +144,5 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 			return null;
 		}
-
-
-
 	}
 }

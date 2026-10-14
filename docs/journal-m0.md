@@ -7,7 +7,7 @@
 > Convention : les preuves sont `fichier:ligne` (sources dans `third-party/moonsharp-trimmed/`,
 > `decomp/` = jeu décompilé).
 
-## État : EN COURS
+## État : TERMINÉ (GO définitif — 2026-10-14)
 
 ---
 
@@ -313,7 +313,51 @@ servi automatiquement par `UserData.Create`.
   (l'amont y appelait `UserData.RegisterType` → aurait levé avec notre stub) ;
 - `StringModule.MoonSharpInit` : pur bookkeeping de metatables (aucun interop) ✓.
 
-*(en attente : retest — hello/bench/watchdog attendus)*
+### Retest final — SUCCÈS COMPLET (console OCR, 2026-10-14)
+
+```
+[ScriptingMod] M0 POC chargement...
+[lua] "hello depuis Lua!"
+[ScriptingMod] hello OK -> MoonSharp 2.0.0.0 2.0.0.0     (_VERSION + _MOONSHARP.version)
+[ScriptingMod] sandbox -> sandbox OK                      (io/load nil, os.time OK)
+[ScriptingMod] M0 pret. Commandes : lua "<code>", bench, watchdog
+$ lua "return 2+2"      ->  [ScriptingMod] -> 4
+$ bench
+  1) boucle adds (watchdog ON) : 335 ms, 2 978 200 instr/s approx, res=500000500000
+  2) cout estime d'un tick 50 Hz a 2000 instr : 0.672 ms/frame (budget Unity ~ 20 ms)
+  3) watchdog budget actuel : 50 000 000 instr/execution
+$ watchdog
+  [watchdog] SUCCES : budget d'instructions depasse (50000000) — script interrompu
+  [watchdog] Le jeu continue de tourner.
+```
+
+**Analyse** :
+- **Perf** : ~3 M instructions Lua/s avec la watchdog branchée (hooks actifs). Un tick de
+  contrôle réaliste (PID : quelques centaines d'instructions) coûte **< 0,2 ms/frame**
+  sur un budget Unity de 20 ms → la performance n'est **pas un sujet** pour ce mod.
+  Marge : ~59 000 instructions par frame avant d'atteindre 20 ms.
+- **Watchdog** : fonctionne (boucle infinie interrompue, jeu vivant). ⚠️ Enseignement de
+  calibration : à ~3 M instr/s, le budget POC de 50 M instructions = **~17 s de gel**
+  avant interruption — inacceptable en production. Budget réaliste à calibrer en M4 :
+  ~500 000 instr/tick (≈ 0,17 s de gel au pire) — largement au-dessus des besoins d'un
+  tick de contrôle, assez bas pour être indolore. À rendre configurable par le joueur.
+- `_VERSION` de MoonSharp = « MoonSharp 2.0.0.0 » (pas « Lua 5.2 ») — cosmétique.
+
+## Étape 9 — Conclusions M0 : GO DÉFINITIF
+
+| Objectif M0 | Verdict |
+|---|---|
+| a. DLL MoonSharp élaguée passe l'AssemblyScanner | ✅ (2e itération : StreamReader corrigé) |
+| b. `print("hello")` Lua en jeu, sandbox vérifiée | ✅ |
+| c. Bench tick 50 Hz | ✅ 0,672 ms/2000 instr → non-sujet |
+| d. Watchdog d'instructions | ✅ (budget à calibrer : 50M → ~500k en production) |
+
+**Deux leçons durables pour tout le reste du projet** (documentées dans AGENTS.md) :
+1. `Type.Name` interdit → `Type.FullName` (MemberInfo::get_Name) ;
+2. la whitelist du scanner = types EXACTS (StreamReader ∉ whitelist malgré « Stream »).
+
+Le chemin technique est validé : MoonSharp v2.0.0.0 élaguée est **le moteur de script du
+mod**. Les jalons M1+ peuvent démarrer.
 
 ## Étape 9 — Conclusions M0 et mise à jour des documents
 

@@ -319,12 +319,11 @@ Règles d'or imposées par le scanner (à respecter dans tout le code du mod) :
 
 ## 7. Jalons proposés
 
-1. **M0 — POC moteur de script (GO/NO-GO définitif)** :
-   a. cloner MoonSharp tag `v2.0.0.0`, appliquer l'élagage documenté ci-dessus, compiler
-      en DLL CLR 2.0 via Docker (`mcs`) ;
-   b. mod sandbox qui charge la DLL et exécute `print("hello")` dans le jeu → vérifier
-      que l'`AssemblyScanner` accepte la DLL (sinon : itérer, plan B UniLua) ;
-   c. micro-benchmark tick 50 Hz.
+1. **M0 — POC moteur de script : ✅ FAIT (2026-10-14, voir `docs/journal-m0.md`)**
+   — MoonSharp v2.0.0.0 élaguée (292 Ko, 15 modules CoreLib sans réflexion) passe
+   l'AssemblyScanner, hello Lua en jeu, bench 0,672 ms/tick-2000-instr, watchdog
+   opérationnelle. Leçns durables : `Type.Name` interdit (FullName), whitelist = types
+   exacts. Budget watchdog à calibrer en M4 (~500k instr/tick).
 2. **M1 — Bloc microcontrôleur vide** : bloc moddé (mesh cube OBJ minimal), mapper avec
    choix de script, `on_tick` loggué à 50 Hz.
 3. **M2 — API capteurs** : machine/blocks/position/vitesse/health + `print`.

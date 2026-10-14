@@ -90,11 +90,15 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
     invariante** → sur locale française, tout `.` lève `FormatException` (vérifié en jeu
     au M1). Géométrie en entiers dans l'OBJ + mise à l'échelle via `<Mesh><Scale>` du
     XML du bloc (désérialisé par XmlSerializer, invariant).
-11. **Un bloc moddé doit faire ~1×1 (ou un multiple)** : la géométrie du point de base
-    est **codée en dur** (`BlockPrefabCreator.cs` : trigger à `z=0.5`, attend un
-    collider ~1.0). Un collider plus petit pénètre le bloc parent au placement → erreur
-    « intersection » permanente (vérifié en jeu au M1). L'icône rend le mesh **brut**
-    (sans `<Mesh><Scale>`) : compenser via `<Icon><Scale>`.
+11. **Géométrie d'attache codée en dur — ajuster avec le workflow Debug** : la géométrie
+    du point de base est codée en dur dans `BlockPrefabCreator.cs` (trigger à `z=0.5`,
+    attend un bloc vanillesque ~1×1) ; un collider mal proportionné par rapport à ce
+    point d'attache provoque l'erreur « intersection » permanente. Workflow validé au
+    M1 : `<Debug>True</Debug>` sur le bloc (visualisation des colliders/points en jeu) +
+    édition du XML à chaud + `Ctrl+H` (reload des valeurs). Un bloc plat (collider
+    0.9×0.9×0.25 décalé z+0.15) fonctionne — le collider doit être cohérent avec le
+    point d'attache, pas nécessairement cubique. L'icône rend le mesh **brut** (sans
+    `<Mesh><Scale>`) : compenser via `<Icon><Scale>` (ici ×0.25 pour un mesh ±1).
 
 ## Documentation
 

@@ -54,7 +54,34 @@ AddingPoint y=0.5.
 que 1 pénètre le parent au placement. Les « petits blocs » vanilla sont des prefabs
 nativement configurés, ils ne passent pas par ce chemin.
 
-## État : EN COURS (retest joueur attendu — bloc 1×1)
+## Étape 8 — RÉUSSITE M1 (ajusté en jeu par le joueur)
+
+**Résultat** : bloc posable, plaçable sur le véhicule, mapper fonctionnel, **script Lua
+opérationnel pendant la simulation** (`on_sim_start` / `on_tick` 50 Hz / `on_sim_stop`).
+
+Le dernier ajustement de géométrie a été fait **en jeu par le joueur** avec le workflow
+officiel (visualisation `<Debug>` + édition à chaud + `Ctrl+H`) — validé comme méthode :
+
+```xml
+<Mesh><Scale x="0.5" y="0.5" z="0.25" /></Mesh>      <!-- bloc PLAT (panneau 1x0.25x1) -->
+<BoxCollider>
+    <Position x="0.0" y="0.0" z="0.15" />            <!-- décalé vers le point de base -->
+    <Scale x="0.9" y="0.9" z="0.25" />               <!-- collider fin, pas cubique -->
+</BoxCollider>
+```
+
+**Enseignement final M1** : le collider n'a pas besoin d'être un cube 1×1 — il doit être
+**cohérent avec le point de base codé en dur** (z=0.5). La nuance est passée dans
+AGENTS.md (règle 11 révisée). L'icône convergera avec `<Icon><Scale 0.25>`.
+
+### Historique des itérations (4 sessions de test joueur)
+
+1. mesh 0.5 avec décimaux → **FormatException** (locale, règle 10) → OBJ en entiers ;
+2. collider 0.5 centré → **« intersection »** (géométrie d'attache codée en dur) ;
+3. collider 1.0 centré → icône encore 2× trop grande, placement KO ;
+4. **bloc plat ajusté en jeu (joueur) → tout fonctionne, script inclus** ✅.
+
+## État : TERMINÉ (M1 validé en jeu — 2026-10-14)
 
 ---
 

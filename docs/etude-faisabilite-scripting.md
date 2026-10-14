@@ -324,8 +324,11 @@ Règles d'or imposées par le scanner (à respecter dans tout le code du mod) :
    l'AssemblyScanner, hello Lua en jeu, bench 0,672 ms/tick-2000-instr, watchdog
    opérationnelle. Leçns durables : `Type.Name` interdit (FullName), whitelist = types
    exacts. Budget watchdog à calibrer en M4 (~500k instr/tick).
-2. **M1 — Bloc microcontrôleur vide** : bloc moddé (mesh cube OBJ minimal), mapper avec
-   choix de script, `on_tick` loggué à 50 Hz.
+2. **M1 — Bloc microcontrôleur : ✅ FAIT (2026-10-14, voir `docs/journal-m1.md`)**
+   — bloc « Microcontroller » posable (bloc plat ajusté en jeu via le workflow Debug +
+   hot-reload), mapper (menu script + toggle actif), runtime Lua par simulation,
+   `on_tick` à 50 Hz opérationnel, seed `hello.lua`. 4 itérations de géométrie (locale
+   OBJ, géométrie d'attache codée en dur).
 3. **M2 — API capteurs** : machine/blocks/position/vitesse/health + `print`.
 4. **M3 — API actionneurs** : `emulate(channel, bool)` via `AddEmulatorKey` (touches **et
    messages nommés**) + test sur moteur vanilla ; puis `set_slider(block, name, value)`

@@ -68,7 +68,11 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
 4. Multiplayer : émulation de touches = host uniquement ; une incompatibilité MP se déclare
    via `<MultiplayerCompatible>false</MultiplayerCompatible>`.
 5. Mod.xml et le code source des mods : ASCII pur (le parser XML du jeu écrit en us-ascii ;
-   évite tout risque inutile).
+   évite tout risque inutile). Exception acceptée : les commentaires de code.
+6. **Jamais `.Name` sur un `Type`** — `Type.Name` compile en
+   `System.Reflection.MemberInfo::get_Name()` et le scanner le rejette (le type
+   déclarant est dans `System.Reflection`). Toujours `.FullName` (déclaré sur
+   `System.Type`, autorisé). Vérifié empiriquement au M0 (journal, étape 7).
 
 ## Documentation
 

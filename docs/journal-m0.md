@@ -202,14 +202,48 @@ donc l'exception watchdog traverse la VM et remonte à l'appelant), `ScriptingMo
 Compilation : BUILD OK (10,5 Ko). Fix : collision `Modding.DataType` (jeu) vs
 `MoonSharp.Interpreter.DataType` → alias `MoonDataType`.
 
-## Étape 7 — Contrôle statique anti-scanner (en cours)
+## Étape 7 — Contrôle statique anti-scanner (RÉUSSI)
 
-Méthode : décompilation ILSpy de NOTRE DLL dans Docker (dotnet SDK), grep des namespaces
-interdits dans le C# re-décompilé (proxy du scan Cecil de l'AssemblyScanner).
-⚠️ `dotnet tool install ilspycmd` à chaque conteneur = lent ; à dockeriser avec un volume
-outils si l'étape devient fréquente.
+Méthode finale : `ikdasm` (image mono:6.12 — disponible dans l'image, contrairement à
+monodis) sur les deux DLL, grep des tokens interdits dans l'IL. Plus rapide et plus
+précis que le cycle ILSpy. Résultats après corrections :
 
-*(à compléter : résultats du grep, corrections éventuelles)*
+| Token | MoonSharp.Interpreter.dll | ScriptingMod.dll |
+|---|---|---|
+| `MemberInfo::` (appels réels) | **0** | **0** |
+| System.IO non-whitelist | **0** (restent : Stream, TextReader/Writer, BinaryReader/Writer, MemoryStream, Path — tous whitelistés) | 0 |
+| System.Diagnostics hors Stopwatch | 0 (restent : attributes metadata seulement) | 0 |
+| System.Net / System.Xml / Microsoft.* / Mono.Cecil | 0 | 0 |
+| pinvokeimpl | 0 | 0 |
+
+Les seules strings `System.Reflection`/`System.IO`/`System.Diagnostics` restantes dans
+les DLL = **tables metadata** (attributes d'assembly `AssemblyTitle` etc.,
+`DefaultMemberAttribute`, `ConditionalAttribute`, `DebuggerBrowsableAttribute`) que
+l'`AssemblyScanner` ne lit pas (il scanne champs, locals et corps IL uniquement —
+`AssemblyScanner.ScanType`).
+
+### ⭐ Découverte critique du M0 : la règle `Type.Name`
+
+`Type` **dérive de** `System.Reflection.MemberInfo` → **`type.Name` compile en
+`callvirt System.Reflection.MemberInfo::get_Name()`** → le scanner l'interdit
+(type déclarant `System.Reflection`, par préfixe). **`Type.FullName` en revanche est
+déclaré sur `System.Type` → autorisé.** RÈGLE D'OR POUR TOUT LE CODE DES MODS :
+*ne jamais utiliser `.Name` sur un `Type` — toujours `.FullName`.*
+
+Sites corrigés : `UserData.GetDescriptorForType`, `ParameterDescriptor.ToString`,
+`ScriptRuntimeException` (2 factories d'erreurs), `ModuleRegister.g.cs` + générateur,
+`ScriptingModEntryPoint.WatchdogCommand`.
+
+### Autres correctifs de cette étape
+
+- `ByteCode.Dump(string)` ( MoonSharp ) : `File.WriteAllText` → `NotSupportedException`
+  (dump debug inutilisé ; `System.IO.File` hors whitelist) ;
+- `IO/BinDumpBinaryReader.cs` : `IOException` → `System.Exception` (IOException hors
+  whitelist — utilisé dans un throw de la lecture bytecode binaire) ;
+- générateur : émission `t.FullName` + re-généré ;
+- divergence à documenter dans third-party/README.md : ByteCode.Dump leve.
+
+Le verdict FINAL appartient à l'AssemblyScanner du jeu au chargement (étape 8).
 
 ## Étape 8 — Mod POC « ScriptingMod » + test en jeu
 

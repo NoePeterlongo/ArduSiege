@@ -114,7 +114,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// </returns>
 		public override string ToString()
 		{
-			return string.Format("{0} {1}{2}", Type.Name, Name, HasDefaultValue ? " = ..." : "");
+			return string.Format("{0} {1}{2}", Type.FullName, Name, HasDefaultValue ? " = ..." : "");
 		}
 
 		/// <summary>

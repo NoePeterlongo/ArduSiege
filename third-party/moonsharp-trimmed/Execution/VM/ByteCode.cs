@@ -62,17 +62,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 	#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE) && (!(NETFX_CORE))
 		public void Dump(string file)
 		{
-			StringBuilder sb = new StringBuilder();
-
-			for (int i = 0; i < Code.Count; i++)
-			{
-				if (Code[i].OpCode == OpCode.Debug)
-					sb.AppendFormat("    {0}\n", Code[i]);
-				else
-					sb.AppendFormat("{0:X8}  {1}\n", i, Code[i]);
-			}
-
-			File.WriteAllText(file, sb.ToString());
+			// [TRIMMED — mod ScriptingMod Besiege] File.WriteAllText est interdit par
+			// l'AssemblyScanner (System.IO.File hors whitelist). Ce dump de debug n'est
+			// pas utilise ; il leve desormais.
+			throw new NotSupportedException("[ScriptingMod] ByteCode.Dump is not available in this trimmed build (System.IO.File forbidden).");
 		}
 	#endif
 

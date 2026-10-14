@@ -186,7 +186,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[watchdog] Interruption par un autre type d'exception : " + ex.GetType().Name + " : " + ex.Message);
+                ModConsole.Log("[watchdog] Interruption par un autre type d'exception : " + ex.GetType().FullName + " : " + ex.Message);
             }
         }
     }

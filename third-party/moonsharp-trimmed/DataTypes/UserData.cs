@@ -238,7 +238,7 @@ namespace MoonSharp.Interpreter
 			if (t == null) return null;
 
 			if (typeof(IUserDataType).IsAssignableFrom(t))
-				return new AutoDescribingUserDataDescriptor(t, t.Name);
+				return new AutoDescribingUserDataDescriptor(t, t.FullName);
 
 			return null;
 		}

@@ -99,7 +99,7 @@ class GenModuleRegister
 		{
 			sb.AppendLine("\t\t\tif (t == typeof(" + m.FullName.Replace('+', '.') + ")) { Register_" + m.Name + "(gtable, ns); return; }");
 		}
-		sb.AppendLine("\t\t\tthrow new NotSupportedException(\"[ScriptingMod] Module non supporte dans ce build MoonSharp elague : \" + (t == null ? \"<null>\" : t.Name));");
+		sb.AppendLine("\t\t\tthrow new NotSupportedException(\"[ScriptingMod] Module non supporte dans ce build MoonSharp elague : \" + (t == null ? \"<null>\" : t.FullName));");
 		sb.AppendLine("\t\t}");
 		sb.AppendLine();
 

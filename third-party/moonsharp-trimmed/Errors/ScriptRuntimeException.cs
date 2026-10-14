@@ -149,9 +149,9 @@ namespace MoonSharp.Interpreter
 			return new ScriptRuntimeException("bad argument #{0} to '{1}' (userdata<{2}>{3} expected, got {4})", 
 				argNum + 1, 
 				funcName,
-				expected.Name,
+				expected.FullName,
 				allowNil ? "nil or " : "",
-				got != null ? "userdata<" + got.GetType().Name + ">" : "null"
+				got != null ? "userdata<" + got.GetType().FullName + ">" : "null"
 				);
 		}
 

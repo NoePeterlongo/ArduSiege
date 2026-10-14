@@ -51,6 +51,12 @@ Divergences documentées vs amont (détails et motivation : `docs/journal-m0.md`
    `NotSupportedException` (notre mod n'expose que des `CallbackFunction` et des primitifs).
 6. JSON : `null` devient `nil` (perte null/absent — D-M0-1 du journal).
 7. Compilation sans define `DEBUG` (les `Debug.Assert` sont `[Conditional]`).
+8. `ByteCode.Dump(string)` et `ObjectValueConverter`/`ObjectToJson` lèvent
+   `NotSupportedException` (étaient les seuls usages `System.IO.File` / réflexion du
+   chemin sérialisation CLR) ; `IOException` (bin-dump) remplacé par `System.Exception`.
+9. **Règle `Type.Name`** : tout `.Name` sur un `Type` compile en
+   `System.Reflection.MemberInfo::get_Name()` (banni). Remplacé par `.FullName`
+   partout (voir journal, étape 7). À respecter dans tout futur code du mod.
 
 ## Licence (BSD-2-Clause, MoonSharp)
 

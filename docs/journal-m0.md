@@ -288,7 +288,32 @@ Autre constat du test : `addmodsdir` OK, GUID généré et inséré dans `Mod.xm
 (`64dffd8d-80ec-465e-9a68-78535b2c1223`). Le message « connection request failed » =
 serveur master MP de Besiege injoignable (sans rapport).
 
-*(à compléter : verdict scanner #2 après relance du jeu + hello/bench/watchdog)*
+### Verdict scanner #2 : ACCEPTÉ — GO technique du M0 acquis
+
+Deuxième test en jeu : plus aucun message `[Security]` — `MoonSharp.Interpreter.dll` ET
+`ScriptingMod.dll` **passent l'AssemblyScanner**.
+
+### Bug runtime #1 (corrigé) : AnonWrapper
+
+Premier bug au chargement (trace OCR) : `NullReferenceException` dans
+`Table.PerformTableSet` ← `MathModule.MoonSharpInit` ← `SetRandom` ←
+`UserData.Create(new AnonWrapper<Random>(…))`.
+
+**Cause** : mon `UserData.Create(object)` patché ne sert que les `IUserDataType` ;
+`AnonWrapper<T>` n'implémentait pas l'interface (l'amont l'enregistrait dans le registre
+réflexif, mode HideMembers) → `Create` retournait `null` → `Registry.Set(key, null)` → NRE.
+**Correctif** : `AnonWrapper<T>` implémente `IUserDataType` en boite noire
+(Index→null, SetIndex→false, MetaIndex→null — sémantique équivalente à HideMembers),
+servi automatiquement par `UserData.Create`.
+
+**Sweep préventif du même pattern** (appelants de `UserData.Create`/`RegisterType`) :
+- `EnumerableWrapper.ConvertIterator` — déjà `IUserDataType` ✓ ;
+- `DynamicModule` (hors preset SoftSandbox, corrigé pareil) :
+  `DynamicExprWrapper` → `IUserDataType` boite noire + `MoonSharpInit` en no-op
+  (l'amont y appelait `UserData.RegisterType` → aurait levé avec notre stub) ;
+- `StringModule.MoonSharpInit` : pur bookkeeping de metatables (aucun interop) ✓.
+
+*(en attente : retest — hello/bench/watchdog attendus)*
 
 ## Étape 9 — Conclusions M0 et mise à jour des documents
 

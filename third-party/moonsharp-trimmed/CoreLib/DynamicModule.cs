@@ -10,14 +10,34 @@ namespace MoonSharp.Interpreter.CoreLib
 	[MoonSharpModule(Namespace = "dynamic")]
 	public class DynamicModule
 	{
-		private class DynamicExprWrapper
+		// [TRIMMED — mod ScriptingMod Besiege] En amont : UserData.RegisterType<
+		// DynamicExprWrapper>(HideMembers) — le registre reflexif est interdit par
+		// l'AssemblyScanner. DynamicExprWrapper implement desormais IUserDataType
+		// (boite noire), servis automatiquement par UserData.Create. Ce module n'est
+		// pas dans Preset_SoftSandbox ; le init devient donc un no-op.
+		private class DynamicExprWrapper : MoonSharp.Interpreter.Interop.IUserDataType
 		{
 			public DynamicExpression Expr;
+
+			public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
+			{
+				return null;
+			}
+
+			public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)
+			{
+				return false;
+			}
+
+			public DynValue MetaIndex(Script script, string metaname)
+			{
+				return null;
+			}
 		}
 
 		public static void MoonSharpInit(Table globalTable, Table stringTable)
 		{
-			UserData.RegisterType<DynamicExprWrapper>(InteropAccessMode.HideMembers);
+			// no-op (cf. commentaire TRIMMED ci-dessus)
 		}
 
 		[MoonSharpModuleMethod]

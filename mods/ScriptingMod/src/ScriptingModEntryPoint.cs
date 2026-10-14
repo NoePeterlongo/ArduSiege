@@ -31,7 +31,7 @@ namespace ScriptingMod
 
         public override void OnLoad()
         {
-            ModConsole.Log("[ScriptingMod] M0 POC : chargement...");
+            ModConsole.Log("[ScriptingMod] M1 : chargement...");
 
             try
             {
@@ -81,7 +81,7 @@ namespace ScriptingMod
             // 6. M1 : seed de la bibliotheque de scripts (dossier data du mod)
             SeedScriptLibrary();
 
-            ModConsole.Log("[ScriptingMod] M0 pret. Commandes : lua \"<code>\", bench, watchdog");
+            ModConsole.Log("[ScriptingMod] M1 pret. Commandes : lua \"<code>\", bench, watchdog");
         }
 
         // --- M1 : bibliotheque de scripts (dossier data persistant du mod) ---

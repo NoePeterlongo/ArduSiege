@@ -8,9 +8,15 @@ Usage : python3 gen_assets.py  (depuis n'importe ou ; ecrit dans ./)
 """
 import struct, zlib
 
-# ---------------- OBJ : cube 0.5 ----------------
-S = 0.25
-lines = ["# Microcontroller block - cube 0.5 (ScriptingMod)", "o Microcontroller"]
+# ---------------- OBJ : cube (entier ! voir note) ----------------
+# IMPORTANT : le chargeur OBJ du jeu (AssetImporter.LoadMeshData) parse les floats
+# avec Convert.ToSingle SANS culture invariante -> sur une locale francaise, tout
+# caractere '.' lève FormatException ("Unknown char: ."). Parade robuste pour
+# toute locale : AUCUN decimal dans l'OBJ (sommets ±1, normales 0/±1, UV 0/1) ;
+# la mise a l'echelle reelle (x0.25 -> cube 0.5) se fait dans le XML du bloc
+# via <Mesh><Scale>, parse par XmlSerializer (invariant, lui).
+S = 1
+lines = ["# Microcontroller block - cube x1 (scaled to 0.5 via block XML Scale)", "o Microcontroller"]
 faces = [
     ([(-S,-S, S),( S,-S, S),( S, S, S),(-S, S, S)], (0,0,1)),    # +Z
     ([( S,-S,-S),(-S,-S,-S),(-S, S,-S),( S, S,-S)], (0,0,-1)),   # -Z

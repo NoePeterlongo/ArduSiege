@@ -5,7 +5,32 @@
 > `on_sim_start` / `on_tick` (50 Hz) / `on_sim_stop` appelés, script `hello.lua` seedé
 > dans la bibliothèque du dossier data. Suite de `docs/journal-m0.md` (moteur validé).
 
-## État : EN COURS (test joueur attendu)
+## Étape 6 — Bug joueur #1 : le chargeur OBJ est sensible à la locale (corrigé)
+
+Symptôme : bloc absent de la barre ; `Player.log` :
+`[Mods] Error loading resource microcontroller-mesh: System.FormatException:
+Unknown char: .` dans `AssetImporter.LoadMeshData`.
+
+**Cause racine** : le chargeur OBJ des mods parse les floats avec `Convert.ToSingle` **sans
+culture invariante** (décompilé : `Besiege/AssetImporter.cs:776`). Sur une locale française,
+`0.25` → `FormatException` : **tout point décimal dans un `.obj` de mod casse sur les
+systèmes français** (et réciproquement : des virgules casseraient les systèmes anglais —
+aucun format ne marche partout tant qu'il y a des décimaux).
+
+**Correctif robuste (toute locale)** : **zéro décimal dans l'OBJ** — cube à sommets ±1,
+normales 0/±1, UV 0/1. La taille réelle (×0.25 → cube 0.5) passe par `<Mesh><Scale
+x="0.25" .../>` dans le XML du bloc, désérialisé par **XmlSerializer (.NET)** qui, lui,
+parse en invariant — vérifié dans `Modding.Serialization/TransformValues.cs` (attributs
+`[XmlElement]`). NB : les faces négatives des sommets sont OK (pas de point), seuls les
+indices de faces devaient être positifs (chargeur).
+
+**Leçon M1 (→ AGENTS.md règle 10)** : jamais de décimaux dans les assets OBJ des mods ;
+tout ce qui est décimal passe par le XML (invariant) ou par la géométrie entière.
+
+Au passage : le message « M0 prêt » était un résidu de libellé (corrigé en M1) — le DLL
+était bien le nouveau.
+
+## État : EN COURS (retest joueur attendu)
 
 ---
 

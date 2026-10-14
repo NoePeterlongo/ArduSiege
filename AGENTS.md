@@ -85,6 +85,11 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
 9. **Toujours écrire `Modding.ModIO.Xxx`** (qualifié) : le jeu a un namespace global
    `ModIO` (IO interne, blacklisté) qui masque la classe `Modding.ModIO` dans la
    résolution de noms C# — `ModIO.Xxx` nu ne compile pas dans les mods.
+10. **Jamais de nombre décimal dans les `.obj` des mods** : le chargeur de meshes
+    (`Besiege/AssetImporter.LoadMeshData`) parse avec `Convert.ToSingle` **sans culture
+    invariante** → sur locale française, tout `.` lève `FormatException` (vérifié en jeu
+    au M1). Géométrie en entiers dans l'OBJ + mise à l'échelle via `<Mesh><Scale>` du
+    XML du bloc (désérialisé par XmlSerializer, invariant).
 
 ## Documentation
 

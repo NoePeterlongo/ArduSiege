@@ -251,6 +251,38 @@ référence, PID/boucles de contrôle — exactement l'apport du mod de scriptin
     sliders ne sont lus qu'au démarrage de la sim → documenter les sliders « live » ;
   - `print()` → console en jeu (`ModConsole`) ; erreurs de script → console + pas de crash.
 
+### Adressage des blocs — distinguer un moteur d'un autre
+
+Pas de renommage de bloc en vanilla, mais quatre mécanismes complémentaires (tous
+vérifiés au source) :
+
+1. **Type** (`BlockBehaviour.Prefab.Type`) : `machine.blocks("Wheel")` → liste. Ne
+   distingue pas à lui seul, base des filtres.
+2. **GUID par bloc** (`BlockBehaviour.Guid`, champ public ; généré par `Machine` au
+   chargement, **sauvé dans le `.bsg`**, **identique entre bloc de build et clone de
+   sim**, cohérent en MP — doc `Modding.Blocks.Block.Guid`) : identité programmatique
+   parfaite pour référencer un bloc précis dans un script. Illisible pour un humain.
+3. **Messages/« variables » par clé mapper** (le mécanisme v1.10) : chaque `MKey` d'un
+   bloc peut être lié à un **tag texte** au lieu d'une touche (`MKey.useMessage`,
+   `message[]` ; éditeur vanilla avec autocomplétion — `BlockMapper.AllVariables`).
+   Le joueur tague ses blocs **dans l'UI vanilla**, le script adresse le canal :
+   `machine.blocks_on("gauche")`, `emulate("gauche", true)`. C'est l'adressage **par
+   groupe** du vanilla (celui du système logique), robuste aux éditions de la machine
+   (le joueur re-tague), et **MP-safe** (l'émulation vise aussi les messages).
+   NB : lier un `MKey` à un message remplace sa touche — le bloc ne répond alors qu'au
+   canal. C'est un choix du joueur, cohérent pour de l'automatisme.
+4. **Index/position** : `machine.block("Wheel", 2)` (2e du type — fragile si la machine
+   change) et requêtes spatiales (`machine.closest(type, pos)`, `near(pos, r)`) —
+   pratique pour « le moteur le plus à gauche », instable aux modifications.
+
+**Design retenu** : t5ags vanilla pour l'adressage humain (canaux), GUID pour les
+références internes du script ; le microcontrôleur **sauvegarde ses associations
+(tag→GUIDs) dans le `.bsg`** via `OnSave/OnLoad` → le script retrouve ses blocs d'un
+run à l'autre même si le joueur réorganise la machine et re-tague.
+Précédents : LenchScripterMod adressait par nom auto (« WHEEL 1 », fragile) ; le mod
+Lua d'ilyshk4 utilise des *ref-keys* (principe des tags, vérifier son implémentation
+exacte au M5).
+
 ### Hot reload (workflow de dev)
 
 - **Scripts Lua = données → rechargeables à chaud, sans relancer le jeu** :
@@ -298,7 +330,9 @@ Règles d'or imposées par le scanner (à respecter dans tout le code du mod) :
 3. **M2 — API capteurs** : machine/blocks/position/vitesse/health + `print`.
 4. **M3 — API actionneurs** : `emulate(channel, bool)` via `AddEmulatorKey` (touches **et
    messages nommés**) + test sur moteur vanilla ; puis `set_slider(block, name, value)`
-   (analogique) + hot reload (`script reload`, recharge au début de chaque sim).
+   (analogique) + hot reload (`script reload`, recharge au début de chaque sim) ;
+   adressage des blocs : tags vanilla (messages MKey) + GUID, associations persistées
+   dans le `.bsg`.
 5. **M4 — Persistance + commandes console** (`script reload/list`), gestion d'erreurs,
    budget d'instructions.
 6. **M5 — Durcissement** : sandbox moteur (`Preset_SoftSandbox`), limites de tick, doc joueur,

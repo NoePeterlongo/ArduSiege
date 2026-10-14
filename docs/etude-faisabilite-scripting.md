@@ -239,9 +239,33 @@ référence, PID/boucles de contrôle — exactement l'apport du mod de scriptin
 - **API script** (surface minimale v0) :
   - lecture : `machine`, `blocks()`, `block.position/rotation/velocity/health/burning`,
     `block.slider(name)`, `input.is_down(key)`, contacts (`on_collide`)…
-  - action : `emulate(key, bool)` (→ touches du mapper des blocs vanilla, MP-safe),
-    `set_slider(block, name, value)` (direct, SP privilégié) ;
+  - action **binaire** : `emulate(channel, bool)` — le canal peut être une touche **ou un
+    message nommé** : les `MKey` vanilla peuvent écouter des « variables » textuelles
+    (`MKey.useMessage`/`message[]`, dictionnaire `KeyInputController.usedMessages`), et
+    l'émulation vise aussi les messages (`KeyInputController.Emulate` gère `useMessage`) →
+    **canaux nommés illimités**, pas limités au clavier (système v1.10) ;
+  - action **analogique** : `set_slider(block, name, value)` — confirmé : les blocs
+    vanilla relisent leurs sliders **en continu pendant la sim** (ex. moteur
+    `CogMotorControllerHinge` : `Velocity = input * speedSlider.Value` chaque tick) →
+    contrôle proportionnel (sortie de PID → vitesse). ⚠️ sémantique par bloc : certains
+    sliders ne sont lus qu'au démarrage de la sim → documenter les sliders « live » ;
   - `print()` → console en jeu (`ModConsole`) ; erreurs de script → console + pas de crash.
+
+### Hot reload (workflow de dev)
+
+- **Scripts Lua = données → rechargeables à chaud, sans relancer le jeu** :
+  - commande console `script reload` (réexport du moteur : `ModIO.ReadAllText` +
+    nouvelle instance `Script` + `DoString`) ;
+  - rechargement automatique à chaque début de simulation (état frais à chaque run) ;
+  - auto-recharge à la sauvegarde possible en **pollant** le contenu via
+    `ModIO.ReadAllText` (comparaison de chaîne, coût négligeable) — `FileSystemWatcher`
+    est inaccessible (namespace `System.IO` interdit, `ModIO` n'expose pas les
+    timestamps) ;
+- **DLL du mod (C#) : PAS rechargeable** — les assemblies ne se déchargent pas sous
+  Mono (cf. doc : mod SP-only ⇒ redémarrage avant MP). Le watcher du loader
+  (`InternalModding.Loading/ModReloading.cs`) ne surveille que `*.xml` (valeurs, mode
+  Debug, touche `Ctrl+H`) et son évènement est dans `InternalModding` (interdit aux mods).
+  → modifier le C# du mod = redémarrer le jeu ; modifier un script Lua = rien à relancer.
 - **Persistance** : script texte via `ModIO` dans le dossier data du mod ; données par
   machine via `OnSave/OnLoad` du bloc contrôleur (piste à étudier : scripts embarqués
   dans le `.bsg` comme le fait le mod Lua d'ilyshk4) ; éditeur externe (VS Code) +
@@ -272,8 +296,9 @@ Règles d'or imposées par le scanner (à respecter dans tout le code du mod) :
 2. **M1 — Bloc microcontrôleur vide** : bloc moddé (mesh cube OBJ minimal), mapper avec
    choix de script, `on_tick` loggué à 50 Hz.
 3. **M2 — API capteurs** : machine/blocks/position/vitesse/health + `print`.
-4. **M3 — API actionneurs** : `emulate(key, bool)` via `AddEmulatorKey` + test sur moteur
-   vanilla ; puis `set_slider(block, name, value)`.
+4. **M3 — API actionneurs** : `emulate(channel, bool)` via `AddEmulatorKey` (touches **et
+   messages nommés**) + test sur moteur vanilla ; puis `set_slider(block, name, value)`
+   (analogique) + hot reload (`script reload`, recharge au début de chaque sim).
 5. **M4 — Persistance + commandes console** (`script reload/list`), gestion d'erreurs,
    budget d'instructions.
 6. **M5 — Durcissement** : sandbox moteur (`Preset_SoftSandbox`), limites de tick, doc joueur,

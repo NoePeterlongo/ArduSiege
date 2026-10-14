@@ -1,4 +1,5 @@
 <Block>
+    <Debug>True</Debug>
     <Name>Microcontroller</Name>
     <ID>1</ID>
     <Mass>0.5</Mass>
@@ -18,7 +19,7 @@
     <Icon>
         <Position x="0.0" y="0.0" z="0.0" />
         <Rotation x="0.0" y="0.0" z="0.0" />
-        <Scale x="0.5" y="0.5" z="0.5" />
+        <Scale x="0.25" y="0.25" z="0.25" />
     </Icon>
 
     <Colliders>
@@ -38,7 +39,7 @@
         <AddingPoint>
             <Position x="0.0" y="0.5" z="0.0" />
             <Rotation x="0.0" y="0.0" z="0.0" />
-            <Stickiness enabled="true" radius="0.6" />
+            <Stickiness enabled="false" radius="0" />
         </AddingPoint>
     </AddingPoints>
 </Block>

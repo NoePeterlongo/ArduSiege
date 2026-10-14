@@ -123,19 +123,93 @@ dans le jeu*, pas à nos heures de build :
 Le fichier généré est **commité** (reproductibilité, pas de dépendance au réseau au
 build). La regeneration nécessite le tarball amont (voir `third-party/README.md`).
 
-## Étape 5 — Patches chirurgicaux (en cours)
+## Étape 5 — Patches chirurgicaux (réalisés)
 
-*(à compléter au fil des patchs : fichier, ce qui a changé, pourquoi)*
+Tous appliqués dans `third-party/moonsharp-trimmed/` (fichiers marqués `[TRIMMED — mod
+ScriptingMod Besiege]`) :
 
-## Étape 6 — Compilation Docker + itération sur erreurs
+| Fichier | Nature du patch |
+|---|---|
+| `Platforms/PlatformAutoDetector.cs` | **réécrit** : valeurs codées en dur (Unity Mono, AOT=true, LimitedPlatformAccessor + InvalidScriptLoader) — la détection amont utilisait `AppDomain.GetAssemblies` + `System.Linq.Expressions` |
+| `Platforms/StandardPlatformAccessor.cs`, `Platforms/DotNetCorePlatformAccessor.cs` | **supprimés** |
+| `Compatibility/Framework.cs` + `Compatibility/Frameworks/**` | **supprimés** (couche d'abstraction réflexion) — usages remplacés par appels `System.Type.*` directs (autorisés : `Type` est dans `System`, pas `System.Reflection`) |
+| `DataTypes/CallbackFunction.cs` | `FromDelegate`/`FromMethodInfo`/`CheckCallbackSignature` supprimés (MethodInfo) — le ctor par délégué reste le chemin du mod |
+| `DataTypes/UserData.cs` | **réécrit** : payload conservé (`Object`/`Descriptor`/`UserValue`) ; registre réflexif remplacé par le chemin `IUserDataType` → `AutoDescribingUserDataDescriptor` ( indispensable : la VM l'utilise pour les itérateurs `for` génériques via `EnumerableWrapper`, cf. `Processor_InstructionLoop.cs:516`) ; `Register*` → `NotSupportedException` ; signature de `RegisterAssembly` amputée de `System.Reflection.Assembly` (aucun appelant restant) |
+| `Interop/StandardDescriptors/AutoDescribingUserDataDescriptor.cs` | **restauré depuis l'amont** + `IsTypeCompatible` en `Type.IsInstanceOfType` direct (seul usage Framework de ce fichier) |
+| `Interop/LuaStateInterop/**` (6 fichiers) | **restaurés depuis l'amont** — la recherche les avait listés « à retirer » à tort : ils sont le support du port KopiLua des patterns `string.find/match/gsub` (`StringModule.EmulateClassicCall(Func<LuaState,int>)`). Vérifiés scanner-clean (pur C#). |
+| `Interop/BasicDescriptors/ParameterDescriptor.cs` | **restauré** + ctor `ParameterInfo` supprimé + `RestrictType` en appel direct — nécessaire car `IOverloadableMemberDescriptor.Parameters` le référence |
+| `Interop/BasicDescriptors/DispatchingUserDataDescriptor.cs`, `Interop/DescriptorHelpers.cs`, `Interop/PropertyTableAssigner.cs` | **supprimés** (utilisateurs interop réflexifs retirés) |
+| `Interop/Converters/ClrToScriptConversions.cs` | **réécrit** : primitifs/string/Closure/Table/CallbackFunction + IList/IDictionary→Table + enums ; delegates arbitraires et UserData-régistry retirés (D-M0-2) |
+| `Interop/Converters/ScriptToClrConversions.cs` | `Framework.Do.*` → `Type.*` directs (tous booléens) ; reste inchangé |
+| `Interop/Converters/TableConversions.cs` | idem + `GetGenericArguments` direct (retourne `Type[]`, autorisé) |
+| `Tree/Lexer/LexerUtils.cs` | `Framework.Do.StringContainsChar` → `str.IndexOf('\\')` |
+| `Serialization/Json/JsonNull.cs` | **réécrit** (D-M0-1) : null JSON → nil ; `Create()` → `DynValue.Nil` |
+| `Serialization/Json/JsonTableConverter.cs` | `ObjectToJson(object)` → `NotSupportedException` (dépendait d'`ObjectValueConverter`, réflexion) ; `json.serialize` Lua reste fonctionnel via `ValueToJson` |
+| `CoreLib/DebugModule.cs` | `debug.debug` (REPL interactif) → erreur propre (ReplInterpreter retiré du build) |
+| `Modules/ModuleRegister.cs` | **réécrit** : route vers `HardwiredModuleRegister` (généré) ; `CreateModuleNamespace` conservé (bookkeeping `package.loaded`) ; flags IO/LoadMethods ignorés (fichiers retirés) |
+| `Interop/RegistrationPolicies/DefaultRegistrationPolicy.cs` | using fantôme StandardDescriptors retiré |
+| `Properties/AssemblyInfo.cs` | **conservé** : attributs = tables metadata, pas d'IL → non scannés |
 
-*(à compléter : commandes, erreurs rencontrées et résolutions)*
+## Étape 6 — Compilation Docker + itération (réalisée)
 
-## Étape 7 — Contrôle statique anti-scanner
+Commandes : `bash tools/moonsharp-build.sh [--regen]` (mono:6.12, mcs, `-nostdlib -noconfig`
+contre les DLL du jeu ; `--regen` reconstruit aussi la DLL complète + relance le générateur).
 
-*(à compléter : décompilation ILSpy de NOTRE DLL + grep des namespaces interdits →
-c'est le pré-check avant le test en jeu ; le verdict réel appartient à l'AssemblyScanner
-du jeu au chargement)*
+**Journal d'erreurs et résolutions** (ordre chronologique) :
+
+1. Tarball GitHub du tag `v2.0.0.0` s'extrait dans `moonsharp-2.0.0.0` (le « v » est
+   retiré) → chemin corrigé dans le script.
+2. Générateur : accolade orpheline après édition → fix.
+3. DLL MoonSharp **complète** (247 fichiers net35, non patchée) : compile **du premier
+   coup** — la cible net35 amont est saine avec les DLL du jeu.
+4. DLL élaguée — erreurs restantes, par vagues :
+   - `KopiLua_StrLib.cs` : `CharPtr`/`LuaState`/`LuaLBuffer` introuvables → restauration
+     de `Interop/LuaStateInterop` (cf. étape 5 — la recherche disait de le retirer,
+     c'est le support des patterns string) ;
+   - `IOverloadableMemberDescriptor` référence `ParameterDescriptor` → restauration
+     patchée ;
+   - `ScriptExecutionContext.cs:126` (`EmulateClassicCall`) → résolu par LuaStateInterop ;
+   - `DefaultRegistrationPolicy.cs` using `StandardDescriptors` fantôme → retrait ;
+   - `TableConversions.cs` using `MoonSharp.Interpreter.Compatibility` fantôme →
+     retrait (namespace devenu vide : `Compatibility/Stopwatch.cs`+`Attributes.cs` sont
+     intégralement `#if PCL/ENABLE_DOTNET`) ;
+   - `JsonTableConverter.cs` → `ObjectValueConverter` retiré → stub (étape 5) ;
+   - `DebugModule.cs` → `ReplInterpreter` retiré → stub de `debug.debug`.
+5. **Générateur** — trois bugs à la première émission :
+   - **zéro module trouvé** : filtre `t.IsAbstract` erroné (les modules MoonSharp sont des
+     classes simples, pas static/abstract) → filtre corrigé ;
+   - **`StringModule.byte`/`char`, `JsonModule.null`** : méthodes déclarées `@byte`/`@null`
+     en amont (mots-clés C#) — la réflexion rend le nom SANS le `@` qu'il faut restituer
+     dans le code généré (`MemberName()`) — et un `.` avalé par un sed a donné
+     `JsonModule@null` (invalide) avant correction ;
+   - **littéral `1.797…E+308`** (`math.huge` = `double.MaxValue`) : le parseur de mcs le
+     rejette (« Floating-point constant is outside the range of type double ») → émission
+     via `double.Parse("…", InvariantCulture)` à la place du littéral (registration à
+     l'exécution, coût nul).
+6. **Résultat : BUILD OK** — `mods/ScriptingMod/ScriptingMod/MoonSharp.Interpreter.dll`
+   = **292 Ko**, 16 modules enregistrés sans réflexion (`ModuleRegister.g.cs`, 15 modules
+   CoreLib + tables itératrices).
+
+**Modules générés** : Basic, Bit32, Coroutine, Debug, Dynamic, ErrorHandling, Json, Math,
+MetaTable, OsSystem, OsTime, String, TableIterators, Table, TableModule_Globals.
+(IoModule et LoadModule exclus : fichiers retirés.)
+
+**Mod POC** (`mods/ScriptingMod/`) : `Mod.xml` (2 assemblies), `WatchdogDebugger.cs`
+(IDebugger-compteur : `IsPauseRequested` compte et **lève** au-delà du budget — vérifié :
+la boucle VM ne catch que `InterpreterException`, `Processor_InstructionLoop.cs:26/249`,
+donc l'exception watchdog traverse la VM et remonte à l'appelant), `ScriptingModEntryPoint.cs`
+(hello Lua, check sandbox, commandes console `lua`/`bench`/`watchdog`), `build.sh`.
+Compilation : BUILD OK (10,5 Ko). Fix : collision `Modding.DataType` (jeu) vs
+`MoonSharp.Interpreter.DataType` → alias `MoonDataType`.
+
+## Étape 7 — Contrôle statique anti-scanner (en cours)
+
+Méthode : décompilation ILSpy de NOTRE DLL dans Docker (dotnet SDK), grep des namespaces
+interdits dans le C# re-décompilé (proxy du scan Cecil de l'AssemblyScanner).
+⚠️ `dotnet tool install ilspycmd` à chaque conteneur = lent ; à dockeriser avec un volume
+outils si l'étape devient fréquente.
+
+*(à compléter : résultats du grep, corrections éventuelles)*
 
 ## Étape 8 — Mod POC « ScriptingMod » + test en jeu
 

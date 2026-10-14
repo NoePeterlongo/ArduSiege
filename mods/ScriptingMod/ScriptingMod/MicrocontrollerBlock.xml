@@ -11,21 +11,21 @@
     <Mesh name="microcontroller-mesh">
         <Position x="0.0" y="0.0" z="0.0" />
         <Rotation x="0.0" y="0.0" z="0.0" />
-        <Scale x="0.25" y="0.25" z="0.25" />
+        <Scale x="0.5" y="0.5" z="0.5" />
     </Mesh>
     <Texture name="microcontroller-tex" />
 
     <Icon>
         <Position x="0.0" y="0.0" z="0.0" />
         <Rotation x="0.0" y="0.0" z="0.0" />
-        <Scale x="1.0" y="1.0" z="1.0" />
+        <Scale x="0.5" y="0.5" z="0.5" />
     </Icon>
 
     <Colliders>
         <BoxCollider>
             <Position x="0.0" y="0.0" z="0.0" />
             <Rotation x="0.0" y="0.0" z="0.0" />
-            <Scale x="0.5" y="0.5" z="0.5" />
+            <Scale x="1.0" y="1.0" z="1.0" />
         </BoxCollider>
     </Colliders>
 
@@ -36,7 +36,7 @@
 
     <AddingPoints>
         <AddingPoint>
-            <Position x="0.0" y="0.25" z="0.0" />
+            <Position x="0.0" y="0.5" z="0.0" />
             <Rotation x="0.0" y="0.0" z="0.0" />
             <Stickiness enabled="true" radius="0.6" />
         </AddingPoint>

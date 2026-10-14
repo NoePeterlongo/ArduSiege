@@ -90,6 +90,11 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
     invariante** → sur locale française, tout `.` lève `FormatException` (vérifié en jeu
     au M1). Géométrie en entiers dans l'OBJ + mise à l'échelle via `<Mesh><Scale>` du
     XML du bloc (désérialisé par XmlSerializer, invariant).
+11. **Un bloc moddé doit faire ~1×1 (ou un multiple)** : la géométrie du point de base
+    est **codée en dur** (`BlockPrefabCreator.cs` : trigger à `z=0.5`, attend un
+    collider ~1.0). Un collider plus petit pénètre le bloc parent au placement → erreur
+    « intersection » permanente (vérifié en jeu au M1). L'icône rend le mesh **brut**
+    (sans `<Mesh><Scale>`) : compenser via `<Icon><Scale>`.
 
 ## Documentation
 

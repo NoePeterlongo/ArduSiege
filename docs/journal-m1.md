@@ -30,7 +30,31 @@ tout ce qui est décimal passe par le XML (invariant) ou par la géométrie enti
 Au passage : le message « M0 prêt » était un résidu de libellé (corrigé en M1) — le DLL
 était bien le nouveau.
 
-## État : EN COURS (retest joueur attendu)
+## Étape 7 — Bug joueur #2 : bloc impossible à placer + icône trop grande (corrigé)
+
+Symptômes : icône 2-3× trop grande dans la barre ; placement impossible (« intersection »,
+ghost rouge), y compris sur du vide.
+
+**Cause racine (les deux symptômes)** : la géométrie des points d'attache des blocs
+moddés est **codée en dur pour des blocs 1×1** dans `BlockPrefabCreator.cs` :
+- le trigger du point de base est à `localPosition (0,0,0.5)` + centre `(0,-0.58,0)`
+  (lignes ~336) : le ghost se positionne donc avec le **centre à 0.5 de la surface**.
+  Avec un collider 0.5 (mon M1 initial), le bloc **pénètre de 0.25** dans le parent →
+  `GhostTrigger.touchingCount > 0` → erreur « intersection » (`GhostPinTrigger.cs:15`,
+  `!StatMaster.Mode.allowIntersection`) ;
+- l'icône (`BlockButtonCreator.cs`) rend le mesh **brut** (sans le `<Mesh><Scale>`),
+  compensée par `<Icon><Scale>` — mon mesh brut = taille 2 → icône trop grande.
+
+**Correctif — dimensionner le bloc en 1×1 standard** (géométrie attendue par le loader) :
+mesh ±1 × Scale 0.5 → visuel 1.0 ; collider 1.0 ; Icon Scale 0.5 → icône 1.0 ;
+AddingPoint y=0.5.
+
+**Leçon M1 (→ AGENTS.md règle 11)** : un bloc moddé doit être de taille ~1×1
+(ou un multiple) — la géométrie d'attache est codée en dur ; un collider plus petit
+que 1 pénètre le parent au placement. Les « petits blocs » vanilla sont des prefabs
+nativement configurés, ils ne passent pas par ce chemin.
+
+## État : EN COURS (retest joueur attendu — bloc 1×1)
 
 ---
 

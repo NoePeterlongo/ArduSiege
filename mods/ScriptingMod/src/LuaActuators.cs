@@ -161,9 +161,6 @@ namespace ScriptingMod
                     continue;
                 }
                 m_Applied[channel] = state;
-
-                // Sonde : chaque transition effectivement envoyee au jeu.
-                ModConsole.Log("[ScriptingMod] diag : emulate(\"" + channel + "\", " + state + ") envoye au jeu");
             }
         }
 

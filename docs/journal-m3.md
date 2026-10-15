@@ -4,7 +4,14 @@
 > vanilla par canaux nommés) + sliders (`block:slider/set_slider/sliders`).
 > Suite de `docs/journal-m2.md` (capteurs validés).
 
-## État : EN COURS (test joueur attendu)
+## État : TERMINÉ (M3 validé en jeu — 2026-10-15)
+
+Cycle complet validé par le joueur : moteur (Cog) lié au message `pousser`
+(Advanced Building activé), tenir P → moteur tourne, relâcher → stop ;
+`set_slider("speed", …)` module la vitesse toutes les 2 s ; console `lua`
+dans le contexte du script. Sondes retirées après validation — conservées :
+capture d'exception par canal (protège le tick machine) et dump des MKey en cas
+de canal sans écouteur (diagnostic à la demande).
 
 ---
 
@@ -139,4 +146,12 @@
 5. console : `lua "return motor.type"` (variables du script accessibles — contexte
    contrôleur).
 
-*(à compléter : résultats)*
+**Résultats (2026-10-15) : TOUT PASSE.** Après le fix du compteur (étape 5) :
+tenir P → moteur tourne, relâcher → stop, slider module la vitesse, console `lua`
+dans le contexte. Trois sessions de debug nécessaires (démo v2 : ligne non
+commentée ; Advanced Building : prérequis caché ; compteur : `false` initial).
+Leçons durables : (1) valider le Lua embarqué par parseur avant test joueur ;
+(2) un réglage vanilla caché derrière une option peut invalider une procédure
+de test — toujours vérifier les conditions d'affichage d'une UI dans le decomp ;
+(3) pour toute API qui délègue à un mécanisme vanilla à compteur, caler la
+baseline implicite de l'état de départ du jeu AVANT le premier envoi.

@@ -37,7 +37,6 @@ namespace ScriptingMod
         private LuaActuatorApi m_Actuator;
         private int m_TickCount;
         private string m_ScriptName;
-        private bool m_EmuTickSeen;
 
         // M3 : indispensable — sans ce flag, la machine n'active pas le systeme
         // d'emulation (Machine.cs lit Prefab.EmulatesAnyKeys, propage depuis notre
@@ -59,7 +58,6 @@ namespace ScriptingMod
         public override void OnSimulateStart()
         {
             m_TickCount = 0;
-            m_EmuTickSeen = false;
             m_Lua = null;
             m_Watchdog = null;
             m_Actuator = null;
@@ -174,19 +172,10 @@ namespace ScriptingMod
 
         public override void SendKeyEmulationUpdateHost()
         {
-            if (m_Actuator == null)
+            if (m_Actuator != null)
             {
-                return;
+                m_Actuator.ApplyPending();
             }
-            // Sonde M3 : prouve que le bloc est inscrit dans simSendEmulationUpdate
-            // (necessite HasEmulationBlocks machine + Prefab.EmulatesAnyKeys). Sans
-            // ce message, l'emulation ne quitte jamais le mod.
-            if (!m_EmuTickSeen)
-            {
-                m_EmuTickSeen = true;
-                ModConsole.Log("[ScriptingMod] diag : tick d'emulation actif pour " + m_ScriptName);
-            }
-            m_Actuator.ApplyPending();
         }
 
         /// <summary>Emule un canal (appele par LuaActuatorApi.ApplyPending).</summary>

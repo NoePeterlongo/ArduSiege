@@ -53,6 +53,30 @@ Ce que le document d'étude ne décrivait pas encore : le **fil continu** de l'e
   (source : `ModPaths.GetDataDirectoryMod`), persistant hors du dossier mod (survit
   aux réinstallations workshop). Écriture via `ModIO.WriteAllText(path, text, data: true)`.
 
+### Amendement D1-bis (2026-10-15, post-M3) — synchronisation machine ↔ bibliothèque
+
+Le modèle initial (« l'association copie une fois, l'export ramène ») laissait deux
+sources de vérité diverger sans résolution. Le couple (source embarquée dans le
+`.bsg`, fichier de bibliothèque associé) est désormais un **automate à trois états**,
+déterminé par simple comparaison de contenu au chargement (coût trivial : Ko de texte) :
+
+| État | Détection | Comportement |
+|---|---|---|
+| **Synchronisé** (contenus identiques) | comparaison au chargement / à l'ouverture du mapper | Fast path : éditer, sauver, `script reload` — aucune cérémonie, aucun avertissement. C'est l'état de repos du cas commun. |
+| **Fichier avance** (contenus diffèrent, le joueur a édité) | idem | `script reload` resynchronise **implicitement** fichier → machine (une ligne de console l'annonce). Aucune action supplémentaire demandée. |
+| **Embarqué orphelin** (fichier absent/renommé, ou import Workshop avec collision de nom) | idem | Seul état qui exige quelque chose : le mapper l'affiche (marqueur sur le nom du script), associer un autre script **avertit avant d'écraser** (l'embarqué est perdable, la bibliothèque ne l'est jamais), `script export` est proposé. En cas de collision import/nom, l'embarqué gagne par défaut (la machine est sa vérité). |
+
+Règle de direction : **bibliothèque → machine**, partout sauf état 3 (machine →
+bibliothèque via export explicite). La divergence n'est jamais un état stable : elle
+apparaît entre deux sauvegardes et se referme au `reload`.
+
+Implications M4 (spéc d'implémentation) :
+- le `MMenu` du contrôleur reflète l'état (marqueur si orphelin) — pas d'association aveugle ;
+- `script show` : par contrôleur posé — nom, état (synchronisé / fichier avance / orphelin) ;
+- `script export` affiche le **chemin complet** dans la console et n'écrase jamais
+  silencieusement (suffixe proposé si collision) ;
+- comparaison embarqué/fichier au `OnSimulateStart` et à l'ouverture du mapper.
+
 ### D2 — Modèle d'exécution
 
 - Une **instance MoonSharp `Script` par bloc contrôleur** (indépendants, budgets séparés).
@@ -148,8 +172,10 @@ sont manipulés côté C# via `ModIO`, jamais depuis le Lua.
   scanner + bench tick.
 - **M1** précise le mapper du contrôleur : `MMenu` scripts (bibliothèque), `MToggle` actif.
 - **M2/M3** inchangés (capteurs, actionneurs, adressage).
-- **M4** devient explicitement : persistance `.bsg` (D1) + commandes console (D5) +
-  seed des exemples (D8) + gestion d'erreurs complète (D3).
+- **M4** devient explicitement : persistance `.bsg` (D1) + **automate de
+  synchronisation D1-bis** (états synchronisé / fichier avance / orphelin) +
+  commandes console (D5 : `script list/reload/show/export`) + seed des exemples (D8)
+  + gestion d'erreurs complète (D3).
 - **M5** ajoute : licences/mentions (D8), politique de versioning, étude ilyshk4.
 
 ---

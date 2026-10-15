@@ -12,6 +12,7 @@
 // Voir docs/journal-m0.md (etape 8).
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Modding;
 using MoonSharp.Interpreter;
@@ -80,6 +81,10 @@ namespace ScriptingMod
                 "bench [n] — micro-benchmark Lua (n iterations, defaut 1 000 000)");
             ModConsole.RegisterCommand("watchdog", WatchdogCommand,
                 "watchdog — lance une boucle infinie Lua : doit etre interrompue par la watchdog");
+
+            // M4 : bibliotheque + sources embarquees (D1-bis)
+            ModConsole.RegisterCommand("script", ScriptCommand,
+                "script list|show|reload [nom]|export <nom>|folder — bibliotheque et sources embarquees");
 
             // 6. M1 : seed de la bibliotheque de scripts (dossier data du mod)
             SeedScriptLibrary();
@@ -433,6 +438,192 @@ namespace ScriptingMod
             {
                 ModConsole.Log("[watchdog] Interruption par un autre type d'exception : " + ex.GetType().FullName + " : " + ex.Message);
             }
+        }
+
+        // --- M4 : commandes `script` (bibliotheque + sources embarquees, D1-bis) ---
+
+        private void ScriptCommand(string[] cmdArgs)
+        {
+            if (cmdArgs.Length == 0)
+            {
+                ModConsole.Log("Usage : script list | show | reload [nom] | export <nom> | folder");
+                return;
+            }
+            string arg = cmdArgs.Length > 1 ? cmdArgs[1] : null;
+            switch (cmdArgs[0])
+            {
+                case "list":
+                    CmdScriptList();
+                    return;
+                case "show":
+                    CmdScriptShow();
+                    return;
+                case "reload":
+                    CmdScriptReload(arg);
+                    return;
+                case "export":
+                    CmdScriptExport(arg);
+                    return;
+                case "folder":
+                    Modding.ModIO.OpenFolderInFileBrowser(SCRIPTS_DIR, data: true);
+                    ModConsole.Log("[script] dossier de la bibliotheque ouvert dans l'explorateur");
+                    return;
+                default:
+                    ModConsole.Log("[script] sous-commande inconnue : " + cmdArgs[0]
+                        + " (list | show | reload | export | folder)");
+                    return;
+            }
+        }
+
+        private void CmdScriptList()
+        {
+            try
+            {
+                string[] files = Modding.ModIO.GetFiles(SCRIPTS_DIR, "*.lua", data: true);
+                ModConsole.Log("[script] bibliotheque : " + files.Length + " script(s)");
+                foreach (string file in files)
+                {
+                    ModConsole.Log("  - " + System.IO.Path.GetFileNameWithoutExtension(file));
+                }
+            }
+            catch (Exception ex)
+            {
+                ModConsole.Log("[script] list impossible : " + ex.Message);
+            }
+        }
+
+        private void CmdScriptShow()
+        {
+            List<MicrocontrollerScript> controllers = GetControllers();
+            if (controllers.Count == 0)
+            {
+                ModConsole.Log("[script] aucun bloc Microcontroller dans la machine locale");
+                return;
+            }
+            int i = 1;
+            foreach (MicrocontrollerScript mc in controllers)
+            {
+                string name = mc.EmbeddedName ?? mc.MenuSelection ?? "(aucun)";
+                string actif = mc.IsRuntimeActive ? " ; EN SIMULATION" : string.Empty;
+                ModConsole.Log("[script] controleur " + i++ + " : \"" + name + "\" — "
+                    + mc.SyncState() + actif);
+            }
+        }
+
+        private void CmdScriptReload(string name)
+        {
+            List<MicrocontrollerScript> controllers = GetControllers();
+            if (controllers.Count == 0)
+            {
+                ModConsole.Log("[script] aucun bloc Microcontroller dans la machine locale");
+                return;
+            }
+            int n = 0;
+            foreach (MicrocontrollerScript mc in controllers)
+            {
+                string target = mc.EmbeddedName ?? mc.MenuSelection;
+                if (name != null && target != name)
+                {
+                    continue;
+                }
+                if (mc.ReloadFromLibrary())
+                {
+                    n++;
+                }
+            }
+            ModConsole.Log("[script] reload : " + n + " controleur(s) resynchronise(s)");
+        }
+
+        private void CmdScriptExport(string name)
+        {
+            List<MicrocontrollerScript> controllers = GetControllers();
+            MicrocontrollerScript mc = null;
+            if (name != null)
+            {
+                foreach (MicrocontrollerScript c in controllers)
+                {
+                    if (c.EmbeddedName == name)
+                    {
+                        mc = c;
+                        break;
+                    }
+                }
+            }
+            if (mc == null)
+            {
+                // pas de nom (ou introuvable) : exporter le controleur actif s'il y en a un
+                foreach (MicrocontrollerScript c in controllers)
+                {
+                    if (c.IsRuntimeActive && c.EmbeddedSource != null)
+                    {
+                        mc = c;
+                        break;
+                    }
+                }
+            }
+            if (mc == null || mc.EmbeddedName == null || mc.EmbeddedSource == null)
+            {
+                ModConsole.Log("[script] export : aucune source embarquee"
+                    + (name != null ? " pour \"" + name + "\"" : string.Empty)
+                    + " (associez d'abord un script dans le mapper d'un Microcontroller)");
+                return;
+            }
+
+            string path = SCRIPTS_DIR + "/" + mc.EmbeddedName + ".lua";
+            try
+            {
+                if (Modding.ModIO.ExistsFile(path, data: true))
+                {
+                    string existing = Modding.ModIO.ReadAllText(path, data: true);
+                    if (existing != mc.EmbeddedSource)
+                    {
+                        // jamais d'ecrasement silencieux (D1-bis)
+                        ModConsole.Log("[script] export REFUSE : \"" + mc.EmbeddedName + ".lua\" existe deja avec un contenu different"
+                            + " — l'embarque et le fichier sont deux versions ; editez/exportez sous un autre nom pour trancher");
+                        return;
+                    }
+                    ModConsole.Log("[script] export : \"" + mc.EmbeddedName + ".lua\" deja identique a la source embarquee");
+                    return;
+                }
+                Modding.ModIO.WriteAllText(path, mc.EmbeddedSource, data: true);
+                mc.RefreshMenuMarker();     // orphelin -> synchronise
+                ModConsole.Log("[script] export OK : Scripts/" + mc.EmbeddedName + ".lua (dossier data du mod)"
+                    + " — 'script folder' pour l'ouvrir dans l'explorateur");
+            }
+            catch (Exception ex)
+            {
+                ModConsole.Log("[script] export impossible : " + ex.Message);
+            }
+        }
+
+        /// <summary>Microcontroleurs de la machine locale (blocs en sim ou en construction).</summary>
+        private static List<MicrocontrollerScript> GetControllers()
+        {
+            List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
+            try
+            {
+                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
+                if (player == null || player.Machine == null)
+                {
+                    return result;
+                }
+                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                    Modding.Game.IsSimulating ? player.Machine.SimulationBlocks : player.Machine.BuildingBlocks;
+                foreach (Modding.Blocks.Block block in blocks)
+                {
+                    BlockBehaviour bb = block.InternalObject;
+                    MicrocontrollerScript mc = bb == null ? null : bb.GetComponent<MicrocontrollerScript>();
+                    if (mc != null)
+                    {
+                        result.Add(mc);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ModConsole.Log("[script] machine locale inaccessible : " + ex.Message);
+            }
+            return result;
         }
     }
 }

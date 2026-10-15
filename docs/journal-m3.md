@@ -52,11 +52,37 @@
   touche P + `set_slider("speed", …)` module la vitesse toutes les 2 s.
 - Version 0.3.0. Build OK ; scan propre (`MemberInfo::` 0, `Path` seul).
 
+## Étape 2bis — Bug démo #1 (corrigé) : ligne 3 non commentée dans `actionneurs.lua`
+
+- **Symptôme joueur** : `erreur Lua au chargement : actionneurs:(3,0-9): unexpected
+  symbol near "pousser"`.
+- **Cause** : dans la constante `ACTIONNEURS_LUA`, la 3e ligne
+  (`"pousser" (champ texte/variable du mapper...)`) n'avait pas le préfixe `--` —
+  Lua tentait de l'exécuter (les 2 premières étaient des commentaires).
+- **Leçon** : le code Lua embarqué en constantes C# doit être validé par un parseur
+  AVANT le test joueur. Procédure validée : extraire la constante (script python) puis
+  `Script.DoString` via un harnais mcs/mono Docker référençant la DLL MoonSharp
+  (`PARSE+RUN OK`) — le parseur exact du jeu, sans lancer Besiege.
+- **Fix** : ligne commentée + prérequis « Advanced Building » documenté dans l'en-tête
+  de la démo ; passage en **SMDEMO v2** (le re-seed écrase automatiquement le fichier
+  v1 cassé chez le joueur). Build OK ; scan propre (`MemberInfo::` 0).
+
 ## Étape 3 — Test joueur (attendu)
 
-1. Relancer le jeu → `actionneurs.lua installe (SMDEMO v1)` ;
-2. machine avec un moteur (Cog) ; dans le mapper du moteur : remplacer sa touche par le
-   MESSAGE `pousser` (champ texte du mapper — « variables à la place des touches ») ;
+> **Prérequis découvert en test** : le bouton qui transforme une touche en MESSAGE
+> n'apparaît que si l'option **Advanced Building** est activée (réglages du jeu).
+> `Selectors/KeySelector.cs` : `messageToggleOn.gameObject.SetActive(... &&
+> OptionsMaster.BesiegeConfig.AdvancedBuilding)` — sans elle, la ligne de touche ne
+> propose aucun champ texte (c'est le « je ne vois pas d'input » du testeur).
+> Après bascule, un `TagSelector` (autocomplétion sur les messages existants de la
+> machine) remplace la touche ; persisté dans le `.bsg` via
+> `MKey.Serialize` → `Message=pousser;Use=True`.
+
+1. Relancer le jeu → `actionneurs.lua mis a jour (SMDEMO v2)` ;
+   **activer Advanced Building dans les options** ;
+2. machine avec un moteur (Cog) ; dans le mapper du moteur : cliquer le bouton de
+   bascule de la ligne de touche (visible uniquement en Advanced Building), puis taper
+   le MESSAGE `pousser` dans le champ texte qui apparaît ;
 3. Microcontroller → script `actionneurs` → simuler ;
 4. tenir **P** → le moteur tourne ; toutes les 2 s : `slider speed : 0.5 -> 2.5` (vitesse
    visible) ;

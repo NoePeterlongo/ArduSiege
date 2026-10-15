@@ -103,7 +103,7 @@ namespace ScriptingMod
                 // jamais ecrasees si le joueur les a renommees/personnalisees sans tag.
                 WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
                 WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
-                WriteDemoIfOutdated("actionneurs.lua", 1, ACTIONNEURS_LUA);
+                WriteDemoIfOutdated("actionneurs.lua", 2, ACTIONNEURS_LUA);
             }
             catch (Exception ex)
             {
@@ -222,11 +222,12 @@ namespace ScriptingMod
             "    print(\"capteurs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo M3 : actionneurs — emulate(canal) + set_slider (SMDEMO v1)
+        // Demo M3 : actionneurs — emulate(canal) + set_slider (SMDEMO v2)
         private const string ACTIONNEURS_LUA =
-            "-- actionneurs.lua (SMDEMO v1) : piloter les blocs vanilla depuis le script\n" +
-            "-- PREPARATION : dans le mapper d'un moteur, remplacez sa touche par le MESSAGE\n" +
-            "\"pousser\" (champ texte/variable du mapper, systeme vanilla v1.10).\n" +
+            "-- actionneurs.lua (SMDEMO v2) : piloter les blocs vanilla depuis le script\n" +
+            "-- PREPARATION : activer l'option Advanced Building dans les reglages du jeu,\n" +
+            "-- puis dans le mapper du moteur, basculez la ligne de touche en champ texte\n" +
+            "-- (bouton apparu grace a Advanced Building) et tapez le MESSAGE \"pousser\".\n" +
             "local ticks = 0\n" +
             "local motor = nil\n" +
             "\n" +

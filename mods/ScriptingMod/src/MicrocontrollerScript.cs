@@ -37,6 +37,7 @@ namespace ScriptingMod
         private LuaActuatorApi m_Actuator;
         private int m_TickCount;
         private string m_ScriptName;
+        private bool m_EmuTickSeen;
 
         // M3 : indispensable — sans ce flag, la machine n'active pas le systeme
         // d'emulation (Machine.cs lit Prefab.EmulatesAnyKeys, propage depuis notre
@@ -58,6 +59,7 @@ namespace ScriptingMod
         public override void OnSimulateStart()
         {
             m_TickCount = 0;
+            m_EmuTickSeen = false;
             m_Lua = null;
             m_Watchdog = null;
             m_Actuator = null;
@@ -172,10 +174,19 @@ namespace ScriptingMod
 
         public override void SendKeyEmulationUpdateHost()
         {
-            if (m_Actuator != null)
+            if (m_Actuator == null)
             {
-                m_Actuator.ApplyPending();
+                return;
             }
+            // Sonde M3 : prouve que le bloc est inscrit dans simSendEmulationUpdate
+            // (necessite HasEmulationBlocks machine + Prefab.EmulatesAnyKeys). Sans
+            // ce message, l'emulation ne quitte jamais le mod.
+            if (!m_EmuTickSeen)
+            {
+                m_EmuTickSeen = true;
+                ModConsole.Log("[ScriptingMod] diag : tick d'emulation actif pour " + m_ScriptName);
+            }
+            m_Actuator.ApplyPending();
         }
 
         /// <summary>Emule un canal (appele par LuaActuatorApi.ApplyPending).</summary>
@@ -193,10 +204,64 @@ namespace ScriptingMod
         /// </summary>
         internal bool ChannelHasListeners(string channel)
         {
+            return FindChannelKeys(channel).Count > 0;
+        }
+
+        /// <summary>
+        /// Diagnostic : resume des MKey de la machine (useMessage, keycodes, messages).
+        /// Sert a comprendre pourquoi un canal n'a pas d'ecouteur (message mal tape,
+        /// useMessage absent, ou KeysCount==0 — cas ou le jeu n'enregistre PAS le
+        /// message dans usedMessages, cf. Machine.InitSimBlock).
+        /// </summary>
+        internal string DumpMachineKeys()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
             Modding.Blocks.PlayerMachine pm = Machine;
             if (pm == null)
             {
-                return false;
+                return "(machine introuvable)";
+            }
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? pm.SimulationBlocks : pm.BuildingBlocks;
+
+            int n = 0;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb == null || bb.MapperTypes == null)
+                {
+                    continue;
+                }
+                foreach (MapperType mt in bb.MapperTypes)
+                {
+                    MKey key = mt as MKey;
+                    if (key == null)
+                    {
+                        continue;
+                    }
+                    n++;
+                    sb.Append("\n  ").Append(bb.Prefab.name ?? "?").Append(" : ")
+                        .Append(key.Key)
+                        .Append(" useMessage=").Append(key.useMessage)
+                        .Append(" keys=").Append(key.KeysCount)
+                        .Append(" messages=[").Append(string.Join(";",
+                            key.message ?? new string[0])).Append("]");
+                }
+            }
+            if (n == 0)
+            {
+                sb.Append("\n  (aucune MKey dans la machine)");
+            }
+            return n + " MKey(s) :" + sb;
+        }
+
+        private List<MKey> FindChannelKeys(string channel)
+        {
+            List<MKey> found = new List<MKey>();
+            Modding.Blocks.PlayerMachine pm = Machine;
+            if (pm == null)
+            {
+                return found;
             }
             System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
                 Modding.Game.IsSimulating ? pm.SimulationBlocks : pm.BuildingBlocks;
@@ -224,12 +289,12 @@ namespace ScriptingMod
                     {
                         if (message == channel)
                         {
-                            return true;
+                            found.Add(key);
                         }
                     }
                 }
             }
-            return false;
+            return found;
         }
 
         // --- helpers ---

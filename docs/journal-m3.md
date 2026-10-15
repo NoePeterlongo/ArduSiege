@@ -67,6 +67,30 @@
   de la démo ; passage en **SMDEMO v2** (le re-seed écrase automatiquement le fichier
   v1 cassé chez le joueur). Build OK ; scan propre (`MemberInfo::` 0).
 
+## Étape 4 — Bug joueur #2 (en cours) : « P ne fait rien » — sondes posées
+
+- **Symptôme** : `set_slider` fonctionne (donc `on_tick` tourne, moteur trouvé), mais
+  tenir P n'actionne pas le moteur lié au message `pousser`. Aucun message d'erreur.
+- **Analyse statique du decomp** (chaîne vérifiée saine de bout en bout) :
+  - `Machine.InitSimBlock` : `AddMKey` (enregistrement des messages dans
+    `usedMessages`) n'est appelé que **par KeyCode de la MKey** — si `KeysCount==0`,
+    un message n'est JAMAIS enregistré (hypothèse H3) ;
+  - `KeyInputController.Emulate` : `usedMessages[text]` lève `KeyNotFoundException`
+    si le message n'y est pas — attrapé nulle part côté jeu ;
+  - `SendEmulationUpdateBlock` (notre point d'entrée) exige : bloc dans
+    `simSendEmulationUpdate` (inscription `Machine.RegisterEmulationUpdate`, gate
+    `HasEmulationBlocks` machine + `Prefab.EmulatesAnyKeys` + `Prefab.RegisterEmulationUpdate`,
+    posé par `BlockPrefabCreator` pour tout bloc moddé) — hypothèse H1 si jamais appelé ;
+  - moteur : `EmulationUpdateBlock` lit `EmulationHeld` → OK vanilla.
+- **Sondes posées** (une seule partie pour trancher entre H1/H2/H3/liaison) :
+  1. `SendKeyEmulationUpdateHost` : log unique « tick d'emulation actif » ;
+  2. garde échouée : dump des MKey de la machine (`useMessage`, `keys=N`,
+     `messages=[...]`) — montre le message réellement tapé et le compteur de keycodes ;
+  3. `EmulateKeys` : try/catch par canal (une `KeyNotFoundException` casserait le tick
+     machine du jeu à chaque frame — désormais capturée et loguée une fois) ;
+  4. log unique du premier envoi réussi par canal.
+- Build OK ; scan propre (`MemberInfo::` 0).
+
 ## Étape 3 — Test joueur (attendu)
 
 > **Prérequis découvert en test** : le bouton qui transforme une touche en MESSAGE

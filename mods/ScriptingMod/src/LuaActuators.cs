@@ -38,6 +38,10 @@ namespace ScriptingMod
         // canaux signales sans écouteur (log unique par canal par simulation)
         private readonly HashSet<string> m_Warned = new HashSet<string>();
 
+        // sondes M3 : premier envoi reussi par canal / canaux en erreur (log unique)
+        private readonly HashSet<string> m_AppliedOnce = new HashSet<string>();
+        private readonly HashSet<string> m_Errored = new HashSet<string>();
+
         internal LuaActuatorApi(MicrocontrollerScript controller)
         {
             m_Controller = controller;
@@ -127,14 +131,37 @@ namespace ScriptingMod
                     if (!m_Warned.Contains(channel))
                     {
                         m_Warned.Add(channel);
+                        ModConsole.Log("[ScriptingMod] diag cles machine : " + m_Controller.DumpMachineKeys());
                         ModConsole.Log("[ScriptingMod] actionneur : canal \"" + channel
                             + "\" sans écouteur — liez la touche d'un bloc a ce MESSAGE dans son mapper (variable/« " + channel + " »)");
                     }
                     continue;
                 }
 
-                m_Controller.EmulateChannel(GetOrCreateChannelKey(channel), state);
+                try
+                {
+                    m_Controller.EmulateChannel(GetOrCreateChannelKey(channel), state);
+                }
+                catch (System.Exception ex)
+                {
+                    // KeyInputController.Emulate fait usedMessages[text] — une exception
+                    // ici casserait le tick machine du jeu ; on capture une fois par canal.
+                    if (!m_Errored.Contains(channel))
+                    {
+                        m_Errored.Add(channel);
+                        ModConsole.Log("[ScriptingMod] ERREUR emulate(\"" + channel + "\") : "
+                            + ex.GetType().FullName + " : " + ex.Message);
+                    }
+                    continue;
+                }
                 m_Applied[channel] = state;
+
+                // Sonde : premier envoi reussi du canal vers le jeu.
+                if (!m_AppliedOnce.Contains(channel))
+                {
+                    m_AppliedOnce.Add(channel);
+                    ModConsole.Log("[ScriptingMod] diag : emulate(\"" + channel + "\", " + state + ") envoye au jeu");
+                }
             }
         }
 
@@ -151,6 +178,8 @@ namespace ScriptingMod
             m_Pending.Clear();
             m_Applied.Clear();
             m_Warned.Clear();
+            m_AppliedOnce.Clear();
+            m_Errored.Clear();
         }
 
         private MKey GetOrCreateChannelKey(string channel)

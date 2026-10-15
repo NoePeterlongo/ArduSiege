@@ -4,7 +4,32 @@
 > contrôleur), `machine` (les blocs de la machine), `input` (le clavier réel du joueur).
 > Suite de `docs/journal-m1.md` (bloc validé).
 
-## État : EN COURS (test joueur attendu)
+## Étape 6 — Retours joueur #1 (corrigés) : console `lua` + touche de démo
+
+**Bug** : `lua "return machine.block_count"` → nil. **Cause** : la commande console
+s'exécutait sur l'instance POC M0 (sans les globals M2 — ils ne sont installés que sur le
+runtime du bloc). **Fix (architecture)** :
+- registre statique `ScriptingModEntryPoint.ActiveRuntime/ActiveWatchdog/ActiveScriptName`,
+  renseigné par `MicrocontrollerScript` au montage/au démontage ;
+- `lua "..."` **route vers le runtime du microcontrôleur pendant la simulation**
+  (contexte complet : self/machine/input — permet aussi d'inspecter/modifier l'état du
+  script en cours, usage debug) ;
+- hors simulation : POC avec `input` (installé au chargement) et `machine` résolu à la
+  volée via `Modding.Common.Player.GetLocalPlayer().Machine` (rafraîchi à chaque appel,
+  nil si pas de joueur) ;
+- `RunLua` refactoré pour prendre (script, watchdog) explicites.
+
+**UX** : la touche de démo passe de `Space` (touche de simulation — bien vu) à `P`.
+
+**Démos versionnées (D8 renforcé)** : les scripts de démo portent un tag `SMDEMO vN` ;
+`WriteDemoIfOutdated` les (ré)installe si absentes ou si la version embarquée est plus
+récente ; un fichier local **sans tag** (personnalisé par le joueur) n'est jamais
+touché. `capteurs.lua` → v2 (touche P), `hello.lua` → v1 (tag ajouté).
+
+Version du mod : 0.2.0. Build OK ; contrôle statique identique (Path whitelisté seul,
+`MemberInfo::` = 0).
+
+## État : EN COURS (retest joueur attendu)
 
 ---
 

@@ -93,6 +93,9 @@ namespace ScriptingMod
                 m_Lua.DoString(source, null, m_ScriptName);
                 CallIfDefined("on_sim_start");
                 Debug.Log("[ScriptingMod] Microcontroleur : script " + m_ScriptName + " demarre");
+
+                // M2 : la commande console `lua` s'executera dans CE contexte
+                ScriptingModEntryPoint.SetActiveRuntime(m_Lua, m_Watchdog, m_ScriptName);
             }
             catch (WatchdogBudgetExceededException wex)
             {
@@ -139,6 +142,7 @@ namespace ScriptingMod
             CallIfDefined("on_sim_stop");
             m_Lua = null;
             m_Watchdog = null;
+            ScriptingModEntryPoint.ClearActiveRuntime();
         }
 
         // --- helpers ---

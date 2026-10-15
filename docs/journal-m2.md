@@ -29,6 +29,16 @@ touché. `capteurs.lua` → v2 (touche P), `hello.lua` → v1 (tag ajouté).
 Version du mod : 0.2.0. Build OK ; contrôle statique identique (Path whitelisté seul,
 `MemberInfo::` = 0).
 
+### Incident migration #1 (résolu manuellement) — démos seedées avant le mécanisme SMDEMO
+
+`capteurs.lua`/`hello.lua` seedés par les builds **pré-SMDEMO** n'ont pas de tag →
+`WriteDemoIfOutdated` les traite comme fichiers joueur → jamais mis à jour, aucun
+message. Résolution : suppression manuelle des deux fichiers (vérifiés non modifiés)
+dans `Besiege/Besiege_Data/Mods/Data/ScriptingMod_<GUID>/Scripts/` → reseed v1/v2
+au prochain chargement. Leçon : le chemin data du mod =
+`Besiege_Data/Mods/Data/<NomSansEspaces>_<GUID>/`. Pour une future publication, les
+installs fraîches reçoivent directement des démos taguées — pas de migration à coder.
+
 ## État : EN COURS (retest joueur attendu)
 
 ---

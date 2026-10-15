@@ -91,6 +91,23 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, bb.transform.position);
                 case "rotation":
                     return LuaApi.Vec3(script, bb.transform.eulerAngles);
+                case "forward":
+                    return LuaApi.Vec3(script, bb.transform.forward);
+                case "up":
+                    return LuaApi.Vec3(script, bb.transform.up);
+                case "right":
+                    return LuaApi.Vec3(script, bb.transform.right);
+                case "quaternion":
+                {
+                    Quaternion q = bb.transform.rotation;
+                    DynValue t = DynValue.NewTable(script);
+                    Table tab = t.Table;
+                    tab.Set("x", DynValue.NewNumber(q.x));
+                    tab.Set("y", DynValue.NewNumber(q.y));
+                    tab.Set("z", DynValue.NewNumber(q.z));
+                    tab.Set("w", DynValue.NewNumber(q.w));
+                    return t;
+                }
                 case "velocity":
                 {
                     Rigidbody rb = bb.Rigidbody;

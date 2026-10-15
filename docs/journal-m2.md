@@ -39,7 +39,21 @@ au prochain chargement. Leçon : le chemin data du mod =
 `Besiege_Data/Mods/Data/<NomSansEspaces>_<GUID>/`. Pour une future publication, les
 installs fraîches reçoivent directement des démos taguées — pas de migration à coder.
 
-## État : EN COURS (retest joueur attendu)
+## Étape 7 — Réponses aux questions capteurs + v3 (quaternion, directeurs, cinématique)
+
+Question joueur : « mesurer les accels, vitesses de rotation, quaternion ? »
+- `angular_velocity` : **déjà exposé** (M2 initial, absent de la démo — corrigé) ;
+- accélération : **pas de capteur natif Unity** → dérivée en Lua : `Δv × 50` par tick
+  (tick fixe 50 Hz — déterministe), lissée EMA dans la démo ;
+- **ajouts au wrapper bloc** : `.forward`/`.up`/`.right` (vecteurs directeurs monde —
+  pratique : `self.up.y > 0.95` = bloc à plat) + `.quaternion` (table {x,y,z,w}) ;
+- démo **capteurs.lua v3** : |v|, |a| lissée, ω en deg/s, indicateur « plat », touche P ;
+- constaté : `machine` nil hors sim quand `Player.GetLocalPlayer()` est null (menu) —
+  cosmétique (usage console), non corrigé pour l'instant.
+
+Build OK ; scan propre (`MemberInfo::` 0, `Path` seul).
+
+## État : EN COURS (retest joueur attendu — v3)
 
 ---
 

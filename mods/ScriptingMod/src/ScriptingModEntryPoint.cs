@@ -102,7 +102,7 @@ namespace ScriptingMod
                 // M2 : demos versionnees (tag SMDEMO vN) — mises a jour par le mod,
                 // jamais ecrasees si le joueur les a renommees/personnalisees sans tag.
                 WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
-                WriteDemoIfOutdated("capteurs.lua", 2, CAPTEURS_LUA);
+                WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
             }
             catch (Exception ex)
             {
@@ -173,13 +173,16 @@ namespace ScriptingMod
             "    print(\"script arrete apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo M2 : lecture des capteurs (self, machine, input) — SMDEMO v2 : touche P
+        // Demo M2 : capteurs + cinematique derivee (SMDEMO v3 : omega/accel/nivelement)
         private const string CAPTEURS_LUA =
-            "-- capteurs.lua (SMDEMO v2) : demo de l'API capteurs\n" +
-            "-- expose : self (ce bloc), machine (les blocs), input (le clavier REEL)\n" +
+            "-- capteurs.lua (SMDEMO v3) : capteurs + cinematique derivee\n" +
+            "-- expose : self (bloc, position/vitesse/rotation/quaternion/directeurs),\n" +
+            "--           machine (blocs), input (clavier REEL)\n" +
             "-- NB : les demos SMDEMO sont mises a jour par le mod ; copiez ce fichier\n" +
             "--      sous un autre nom pour le personnaliser sans etre ecrase.\n" +
             "local ticks = 0\n" +
+            "local last_v = {x = 0, y = 0, z = 0}\n" +
+            "local accel_s = 0.0\n" +
             "\n" +
             "function on_sim_start()\n" +
             "    print(\"capteurs : machine de \" .. machine.block_count .. \" blocs, masse \" .. string.format(\"%.0f\", machine.mass))\n" +
@@ -194,12 +197,24 @@ namespace ScriptingMod
             "\n" +
             "function on_tick()\n" +
             "    ticks = ticks + 1\n" +
+            "    -- acceleration derivee : dv/dt avec dt = 1/50 s (tick fixe 50 Hz)\n" +
+            "    local v = self.velocity\n" +
+            "    local ax = (v.x - last_v.x) * 50\n" +
+            "    local ay = (v.y - last_v.y) * 50\n" +
+            "    local az = (v.z - last_v.z) * 50\n" +
+            "    last_v = v\n" +
+            "    local a = math.sqrt(ax * ax + ay * ay + az * az)\n" +
+            "    accel_s = accel_s * 0.95 + a * 0.05    -- lissage exponentiel\n" +
+            "\n" +
             "    if ticks % 50 ~= 0 then return end\n" +
             "    local p = self.position\n" +
-            "    local v = self.velocity\n" +
             "    local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)\n" +
-            "    print(string.format(\"t=%ds  pos=(%.1f, %.1f, %.1f)  |v|=%.2f  touche P=%s\",\n" +
-            "        ticks / 50, p.x, p.y, p.z, speed, tostring(input:is_held(\"P\"))))\n" +
+            "    local w = self.angular_velocity\n" +
+            "    local omega = math.sqrt(w.x * w.x + w.y * w.y + w.z * w.z) * 180 / math.pi\n" +
+            "    local up = self.up\n" +
+            "    local plat = up.y > 0.95    -- axe up du bloc aligne avec le haut monde ?\n" +
+            "    print(string.format(\"t=%ds  pos=(%.1f, %.1f, %.1f)  |v|=%.2f  |a|=%.2f  omega=%.1f deg/s  plat=%s  P=%s\",\n" +
+            "        ticks / 50, p.x, p.y, p.z, speed, accel_s, omega, tostring(plat), tostring(input:is_held(\"P\"))))\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +

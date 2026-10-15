@@ -34,8 +34,17 @@ namespace ScriptingMod
 
         private Script m_Lua;
         private WatchdogDebugger m_Watchdog;
+        private LuaActuatorApi m_Actuator;
         private int m_TickCount;
         private string m_ScriptName;
+
+        // M3 : indispensable — sans ce flag, la machine n'active pas le systeme
+        // d'emulation (Machine.cs lit Prefab.EmulatesAnyKeys, propage depuis notre
+        // override au SafeAwake via ModBlockBehaviourHandler.cs:174).
+        public override bool EmulatesAnyKeys
+        {
+            get { return true; }
+        }
 
         public override void SafeAwake()
         {
@@ -51,6 +60,7 @@ namespace ScriptingMod
             m_TickCount = 0;
             m_Lua = null;
             m_Watchdog = null;
+            m_Actuator = null;
 
             if (!m_ActiveToggle.IsActive)
             {
@@ -88,6 +98,10 @@ namespace ScriptingMod
                 // M2 : API capteurs (self, machine, input) — avant DoString pour
                 // que le script puisse les utiliser des on_sim_start.
                 LuaApi.Install(m_Lua, this);
+
+                // M3 : API actionneurs — emulate(canal, etat)
+                m_Actuator = new LuaActuatorApi(this);
+                m_Lua.Globals.Set("emulate", UserData.Create(m_Actuator));
 
                 m_Watchdog.Reset();
                 m_Lua.DoString(source, null, m_ScriptName);
@@ -140,9 +154,82 @@ namespace ScriptingMod
         public override void OnSimulateStop()
         {
             CallIfDefined("on_sim_stop");
+
+            // M3 : relacher les canaux emules AVANT de demonter (symetrie du compteur
+            // d'emulation — sinon les blocs resteraient "coinces" jusqu'au prochain run)
+            if (m_Actuator != null)
+            {
+                m_Actuator.ResetAll();
+                m_Actuator = null;
+            }
+
             m_Lua = null;
             m_Watchdog = null;
             ScriptingModEntryPoint.ClearActiveRuntime();
+        }
+
+        // --- M3 : application des canaux au tick d'emulation officiel (host) ---
+
+        public override void SendKeyEmulationUpdateHost()
+        {
+            if (m_Actuator != null)
+            {
+                m_Actuator.ApplyPending();
+            }
+        }
+
+        /// <summary>Emule un canal (appele par LuaActuatorApi.ApplyPending).</summary>
+        internal void EmulateChannel(MKey channelKey, bool state)
+        {
+            // ModBlockBehaviour.EmulateKeys (wrapper public) — activationKeys vides :
+            // notre bloc n'a aucune touche propre, pas de boucle possible.
+            EmulateKeys(new MKey[0], channelKey, state);
+        }
+
+        /// <summary>
+        /// Le canal a-t-il au moins un écouteur dans la machine ? (garde anti-NRE :
+        /// KeyInputController.Emule dereference usedMessages[text] sans verification).
+        /// Scan des MapperTypes publics des blocs — messages = liaisons mapper v1.10.
+        /// </summary>
+        internal bool ChannelHasListeners(string channel)
+        {
+            Modding.Blocks.PlayerMachine pm = Machine;
+            if (pm == null)
+            {
+                return false;
+            }
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? pm.SimulationBlocks : pm.BuildingBlocks;
+
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb == null || bb.MapperTypes == null)
+                {
+                    continue;
+                }
+                foreach (MapperType mt in bb.MapperTypes)
+                {
+                    MKey key = mt as MKey;
+                    if (key == null || !key.useMessage)
+                    {
+                        continue;
+                    }
+                    string[] messages = key.message;
+                    if (messages == null)
+                    {
+                        continue;
+                    }
+                    foreach (string message in messages)
+                    {
+                        if (message == channel)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         // --- helpers ---

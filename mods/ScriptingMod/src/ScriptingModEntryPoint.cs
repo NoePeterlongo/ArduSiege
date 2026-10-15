@@ -103,6 +103,7 @@ namespace ScriptingMod
                 // jamais ecrasees si le joueur les a renommees/personnalisees sans tag.
                 WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
                 WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
+                WriteDemoIfOutdated("actionneurs.lua", 1, ACTIONNEURS_LUA);
             }
             catch (Exception ex)
             {
@@ -219,6 +220,41 @@ namespace ScriptingMod
             "\n" +
             "function on_sim_stop()\n" +
             "    print(\"capteurs : fin apres \" .. ticks .. \" ticks\")\n" +
+            "end\n";
+
+        // Demo M3 : actionneurs — emulate(canal) + set_slider (SMDEMO v1)
+        private const string ACTIONNEURS_LUA =
+            "-- actionneurs.lua (SMDEMO v1) : piloter les blocs vanilla depuis le script\n" +
+            "-- PREPARATION : dans le mapper d'un moteur, remplacez sa touche par le MESSAGE\n" +
+            "\"pousser\" (champ texte/variable du mapper, systeme vanilla v1.10).\n" +
+            "local ticks = 0\n" +
+            "local motor = nil\n" +
+            "\n" +
+            "function on_sim_start()\n" +
+            "    print(\"actionneurs : liez un moteur au message 'pousser' (mapper), puis tenez P\")\n" +
+            "    local moteurs = machine:blocks(\"Cog\")\n" +
+            "    if #moteurs > 0 then\n" +
+            "        motor = moteurs[1]\n" +
+            "        print(\"  moteur cible : \" .. motor.type)\n" +
+            "        for k, d in pairs(motor.sliders) do\n" +
+            "            print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "        end\n" +
+            "    end\n" +
+            "end\n" +
+            "\n" +
+            "function on_tick()\n" +
+            "    emulate(\"pousser\", input:is_held(\"P\"))\n" +
+            "    ticks = ticks + 1\n" +
+            "    if motor == nil or ticks % 100 ~= 0 then return end\n" +
+            "    -- module la vitesse du moteur toutes les 2 s (demo set_slider analogique)\n" +
+            "    local v = motor:slider(\"speed\")\n" +
+            "    local cible = (v < 1.5) and 2.5 or 0.5\n" +
+            "    motor:set_slider(\"speed\", cible)\n" +
+            "    print(string.format(\"  slider speed : %.1f -> %.1f\", v, cible))\n" +
+            "end\n" +
+            "\n" +
+            "function on_sim_stop()\n" +
+            "    print(\"actionneurs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
         // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---

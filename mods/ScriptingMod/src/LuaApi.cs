@@ -124,9 +124,114 @@ namespace ScriptingMod
                     return DynValue.NewBoolean(m_Block.IsBurning);
                 case "is_destroyed":
                     return DynValue.NewBoolean(bb.IsDestroyed);
+                // --- M3 : sliders (lecture/ecriture directes, SP privilegie) ---
+                case "sliders":
+                    return BuildSlidersTable(script, bb);
+                case "slider":
+                    return DynValue.NewCallback((ctx, args) => SliderRead(script, args), "slider");
+                case "set_slider":
+                    return DynValue.NewCallback((ctx, args) => SliderWrite(script, args), "set_slider");
                 default:
                     return null;
             }
+        }
+
+        // --- M3 : sliders du bloc (MapperTypes publics, MSlider.Value notifie le bloc) ---
+
+        private static DynValue BuildSlidersTable(Script script, BlockBehaviour bb)
+        {
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            if (bb.MapperTypes == null)
+            {
+                return result;
+            }
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MSlider slider = mt as MSlider;
+                if (slider != null)
+                {
+                    table.Set(slider.Key, DynValue.NewString(slider.DisplayName ?? slider.Key));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Retrouve un MSlider par sa cle (exacte puis insensible a la casse).</summary>
+        private static MSlider FindSlider(BlockBehaviour bb, string name)
+        {
+            if (bb.MapperTypes == null || string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+            MSlider insensitive = null;
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MSlider slider = mt as MSlider;
+                if (slider == null)
+                {
+                    continue;
+                }
+                if (slider.Key == name)
+                {
+                    return slider;
+                }
+                if (string.Compare(slider.Key, name, System.StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    insensitive = slider;
+                }
+            }
+            return insensitive;
+        }
+
+        private DynValue SliderRead(Script script, CallbackArguments args)
+        {
+            // b:slider("speed") ou b.slider("speed") — premier argument string
+            string name = FirstStringArg(args);
+            MSlider slider = FindSlider(m_Block.InternalObject, name);
+            if (slider == null)
+            {
+                throw new ScriptRuntimeException("slider inconnu \"" + name + "\" — consultez b.sliders pour la liste");
+            }
+            return DynValue.NewNumber(slider.Value);
+        }
+
+        private DynValue SliderWrite(Script script, CallbackArguments args)
+        {
+            // b:set_slider("speed", 1.5) — premier string = nom, premier nombre = valeur
+            string name = FirstStringArg(args);
+            double? value = null;
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (args[i].Type == MoonSharp.Interpreter.DataType.Number)
+                {
+                    value = args[i].Number;
+                    break;
+                }
+            }
+            if (name == null || !value.HasValue)
+            {
+                throw new ScriptRuntimeException("set_slider(nom, valeur) : ex. b:set_slider(\"speed\", 1.5)");
+            }
+            MSlider slider = FindSlider(m_Block.InternalObject, name);
+            if (slider == null)
+            {
+                throw new ScriptRuntimeException("slider inconnu \"" + name + "\" — consultez b.sliders pour la liste");
+            }
+            slider.Value = (float)value.Value;   // setter public -> notifie le bloc (InvokeValueChanged)
+            return DynValue.Nil;
+        }
+
+        private static string FirstStringArg(CallbackArguments args)
+        {
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (args[i].Type == MoonSharp.Interpreter.DataType.String)
+                {
+                    return args[i].String;
+                }
+            }
+            return null;
         }
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)

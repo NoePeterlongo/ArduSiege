@@ -67,6 +67,32 @@
   de la démo ; passage en **SMDEMO v2** (le re-seed écrase automatiquement le fichier
   v1 cassé chez le joueur). Build OK ; scan propre (`MemberInfo::` 0).
 
+## Étape 5 — Bug joueur #2 CAUSE TROUVÉE : `emulate(false)` initial décrémente le compteur
+
+- **Protocole joueur décisif** : `set_slider` OK ; `emulate("pousser", true)` en dur →
+  moteur tourne ; `print(input:is_held("P"))` correct ; mais avec
+  `emulate("pousser", input:is_held("P"))` le moteur ne tourne jamais.
+- **Cause** : `MKey.UpdateEmulation` fait `emulators += (etat ? +1 : -1)` — un
+  COMPTEUR, pas un état. Au premier tick, P est relâché → le script envoie
+  `false` → compteur 0 → **-1**. Puis tenir P envoie `true` → -1 → **0**.
+  Le moteur teste `Emulating => emulators > 0` → jamais vrai. (Avec `true` en dur :
+  0 → 1 → moteur OK. Cohérent avec tout le protocole.)
+  Le piège « compteur, pas un état » du journal (étape 1) était donc double :
+  idempotence entre nos envois, MAIS aussi état de départ — le jeu naît avec
+  compteur=0 (état « relâché »), donc un `false` initial est un changement **fictif**
+  qui décale le compteur d'un cran.
+- **Fix** (`LuaActuators.ApplyPending`) : un canal absent de `m_Applied` est traité
+  comme « déjà appliqué à false » (via `TryGetValue` qui écrit `false` si absent) —
+  plus jamais de `false` initial fantôme. Les transitions restent seules envoyées.
+- **Sonde corrigée** : le log « envoye au jeu » apparaît désormais à CHAQUE
+  transition appliquée (avant : première fois par canal — message trompeur qui a
+  fait croire à un envoi unique).
+- **Limite documentée (D4)** : si un autre bloc émule déjà le même canal au démarrage
+  (ex. porte logique vanilla active), son compteur est partagé — un script qui
+  éteint le canal éteint aussi l'émulation de l'autre bloc. Multi-émulateurs sur un
+  même canal = hors périmètre v0 (décision D4), à documenter pour le joueur.
+- Build OK ; scan propre (`MemberInfo::` 0).
+
 ## Étape 4 — Bug joueur #2 (en cours) : « P ne fait rien » — sondes posées
 
 - **Symptôme** : `set_slider` fonctionne (donc `on_tick` tourne, moteur trouvé), mais

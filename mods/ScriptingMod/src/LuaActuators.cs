@@ -38,8 +38,7 @@ namespace ScriptingMod
         // canaux signales sans écouteur (log unique par canal par simulation)
         private readonly HashSet<string> m_Warned = new HashSet<string>();
 
-        // sondes M3 : premier envoi reussi par canal / canaux en erreur (log unique)
-        private readonly HashSet<string> m_AppliedOnce = new HashSet<string>();
+        // sondes M3 : canaux en erreur (log unique par canal)
         private readonly HashSet<string> m_Errored = new HashSet<string>();
 
         internal LuaActuatorApi(MicrocontrollerScript controller)
@@ -120,8 +119,15 @@ namespace ScriptingMod
                 string channel = kv.Key;
                 bool state = kv.Value;
 
+                // Idempotence vs l'ETAT REEL du jeu. UpdateEmulation est un COMPTEUR
+                // (+= ±1), pas un etat : envoyer "false" a un canal jamais actif le fait
+                // passer a -1, et le "true" suivant ne le ramene qu'a 0 (Emulating =
+                // emulators > 0 reste faux — moteur mort). Au demarrage, le jeu est dans
+                // l'etat "relache" (compteur 0) : un canal absent de m_Applied est donc
+                // deja "applique a false" — TryGetValue ecrit false dans previously.
                 bool previously;
-                if (m_Applied.TryGetValue(channel, out previously) && previously == state)
+                m_Applied.TryGetValue(channel, out previously);
+                if (previously == state)
                 {
                     continue; // idempotence : rien a changer
                 }
@@ -156,12 +162,8 @@ namespace ScriptingMod
                 }
                 m_Applied[channel] = state;
 
-                // Sonde : premier envoi reussi du canal vers le jeu.
-                if (!m_AppliedOnce.Contains(channel))
-                {
-                    m_AppliedOnce.Add(channel);
-                    ModConsole.Log("[ScriptingMod] diag : emulate(\"" + channel + "\", " + state + ") envoye au jeu");
-                }
+                // Sonde : chaque transition effectivement envoyee au jeu.
+                ModConsole.Log("[ScriptingMod] diag : emulate(\"" + channel + "\", " + state + ") envoye au jeu");
             }
         }
 
@@ -178,7 +180,6 @@ namespace ScriptingMod
             m_Pending.Clear();
             m_Applied.Clear();
             m_Warned.Clear();
-            m_AppliedOnce.Clear();
             m_Errored.Clear();
         }
 

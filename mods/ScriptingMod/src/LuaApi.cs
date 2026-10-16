@@ -453,6 +453,14 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, m_Machine.Position);
                 case "rotation":
                     return LuaApi.Vec3(script, m_Machine.Rotation.eulerAngles);
+                // axes du repere MACHINE (racine) — utiles pour les boucles de
+                // controle (rester a plat : machine.up.y proche de 1)
+                case "up":
+                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.up);
+                case "forward":
+                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.forward);
+                case "right":
+                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.right);
                 case "mass":
                     return DynValue.NewNumber(m_Machine.Mass);
                 case "health":

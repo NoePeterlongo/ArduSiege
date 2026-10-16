@@ -67,12 +67,25 @@
   (`.recup.lua`) + message console : plus protecteur qu'un avertissement qu'on ne
   peut pas rendre bloquant en UI vanilla.
 
-## Étape 4 — Build + scan
+## Étape 4 — Bug joueur #1 (corrigé) : `GetLocalPlayer()` est null en solo
+
+- **Symptôme** : `script show` → « aucun joueur local » dans un niveau, en sim ou hors sim.
+- **Cause** (decomp) : `PlayerData.localPlayer` n'est assigné que par `ChatController`
+  (MP) → `Modding.Common.Player.GetLocalPlayer()` retourne null en solo. Le fallback
+  console `lua` de M2 (`RefreshConsoleMachine`) avait le même bug latent — jamais vu
+  car la console utilisait le contexte runtime actif en sim.
+- **Fix** : `GetLocalMachine()` — MP : joueur local ; SP : `Machine.Active()`
+  (`MachineObjectTracker.activeMachine`, même accès que `CinematicCam`). Appliqué à
+  `GetControllers` (commandes script) ET à `RefreshConsoleMachine`.
+- **Leçon durable** : l'API `Modding.Common.Player` est MP-first — en solo, toujours
+  passer par `Machine.Active()` (ou un contexte bloc : `BlockScript.Machine`).
+
+## Étape 5 — Build + scan
 
 Build OK (Docker mcs). Scan propre : `MemberInfo::` 0, pas de StreamReader/Writer,
 pas de System.Reflection hors metadata.
 
-## Étape 5 — Test joueur (attendu)
+## Étape 6 — Test joueur (attendu)
 
 1. Relancer le jeu, poser un Microcontroller, associer un script au mapper →
    console : `script "..." associe (source copiee dans la machine)` ;

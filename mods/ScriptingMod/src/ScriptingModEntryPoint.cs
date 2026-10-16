@@ -340,20 +340,22 @@ namespace ScriptingMod
 
         private void RefreshConsoleMachine()
         {
-            // machine du joueur local, re-resolue a chaque appel (le POC n'a pas de
-            // contexte bloc) ; nil si aucun joueur/machine
+            // machine locale, re-resolue a chaque appel (le POC n'a pas de contexte
+            // bloc) ; nil si aucune machine (menu, multiverse...)
+            // NB M4 : GetLocalPlayer() est null en SOLO (PlayerData.localPlayer n'est
+            // assigne qu'en MP) -> GetLocalMachine() couvre aussi le cas SP.
             DynValue machineValue = DynValue.Nil;
             try
             {
-                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
-                if (player != null && player.Machine != null)
+                Modding.Blocks.PlayerMachine machine = GetLocalMachine();
+                if (machine != null)
                 {
-                    machineValue = UserData.Create(new LuaMachineApi(player.Machine));
+                    machineValue = UserData.Create(new LuaMachineApi(machine));
                 }
             }
             catch (Exception)
             {
-                // pas de joueur local (menu, multiverse...) — machine laissee a nil
+                // machine laissee a nil
             }
             m_Script.Globals.Set("machine", machineValue);
         }
@@ -618,16 +620,13 @@ namespace ScriptingMod
             List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
             try
             {
-                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
-                if (player == null)
-                {
-                    m_ScanInfo = "pas de joueur local (menu principal ?)";
-                    return result;
-                }
-                Modding.Blocks.PlayerMachine machine = player.Machine;
+                // SP : PlayerData.localPlayer n'est assigne qu'en MP (ChatController)
+                // -> GetLocalPlayer() retourne null en solo. Le point d'acces solo est
+                // Machine.Active() (MachineObjectTracker.activeMachine).
+                Modding.Blocks.PlayerMachine machine = GetLocalMachine();
                 if (machine == null)
                 {
-                    m_ScanInfo = "joueur sans machine (hors niveau ?)";
+                    m_ScanInfo = "aucune machine locale (hors niveau ?)";
                     return result;
                 }
 
@@ -651,6 +650,38 @@ namespace ScriptingMod
                 m_ScanInfo = "exception : " + ex.GetType().FullName + " : " + ex.Message;
             }
             return result;
+        }
+
+        /// <summary>
+        /// Machine locale : MP -> joueur local ; SP -> Machine.Active().
+        /// </summary>
+        internal static Modding.Blocks.PlayerMachine GetLocalMachine()
+        {
+            try
+            {
+                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
+                if (player != null && player.Machine != null)
+                {
+                    return player.Machine;
+                }
+            }
+            catch (Exception)
+            {
+                // hors MP : Playerlist/PlayerData non initialises
+            }
+            try
+            {
+                Machine active = Machine.Active();
+                if (active != null)
+                {
+                    return Modding.Blocks.PlayerMachine.From(active);
+                }
+            }
+            catch (Exception)
+            {
+                // pas de machine active (menu)
+            }
+            return null;
         }
 
         /// <summary>Collecte les MicrocontrollerScript d'une collection de blocs (dedup par GUID).</summary>

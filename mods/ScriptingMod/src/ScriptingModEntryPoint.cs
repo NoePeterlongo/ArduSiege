@@ -12,6 +12,7 @@
 // Voir docs/journal-m0.md (etape 8).
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Modding;
 using MoonSharp.Interpreter;
@@ -80,6 +81,14 @@ namespace ScriptingMod
                 "bench [n] — micro-benchmark Lua (n iterations, defaut 1 000 000)");
             ModConsole.RegisterCommand("watchdog", WatchdogCommand,
                 "watchdog — lance une boucle infinie Lua : doit etre interrompue par la watchdog");
+
+            // M4 : bibliotheque + sources embarquees (D1-ter : nom seulement)
+            ModConsole.RegisterCommand("script", ScriptCommand,
+                "script list|show|reload [nom]|folder — bibliotheque de scripts");
+
+            // M4 : rafraichir le menu des Microcontroleurs a l'ouverture du mapper
+            // (nouveaux scripts visibles sans relancer le niveau).
+            BlockMapper.onMapperOpen += OnMapperOpen;
 
             // 6. M1 : seed de la bibliotheque de scripts (dossier data du mod)
             SeedScriptLibrary();
@@ -335,20 +344,22 @@ namespace ScriptingMod
 
         private void RefreshConsoleMachine()
         {
-            // machine du joueur local, re-resolue a chaque appel (le POC n'a pas de
-            // contexte bloc) ; nil si aucun joueur/machine
+            // machine locale, re-resolue a chaque appel (le POC n'a pas de contexte
+            // bloc) ; nil si aucune machine (menu, multiverse...)
+            // NB M4 : GetLocalPlayer() est null en SOLO (PlayerData.localPlayer n'est
+            // assigne qu'en MP) -> GetLocalMachine() couvre aussi le cas SP.
             DynValue machineValue = DynValue.Nil;
             try
             {
-                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
-                if (player != null && player.Machine != null)
+                Modding.Blocks.PlayerMachine machine = GetLocalMachine();
+                if (machine != null)
                 {
-                    machineValue = UserData.Create(new LuaMachineApi(player.Machine));
+                    machineValue = UserData.Create(new LuaMachineApi(machine));
                 }
             }
             catch (Exception)
             {
-                // pas de joueur local (menu, multiverse...) — machine laissee a nil
+                // machine laissee a nil
             }
             m_Script.Globals.Set("machine", machineValue);
         }
@@ -433,6 +444,248 @@ namespace ScriptingMod
             {
                 ModConsole.Log("[watchdog] Interruption par un autre type d'exception : " + ex.GetType().FullName + " : " + ex.Message);
             }
+        }
+
+        // --- M4 : commandes `script` (bibliotheque + sources embarquees, D1-bis) ---
+
+        private void ScriptCommand(string[] cmdArgs)
+        {
+            if (cmdArgs.Length == 0)
+            {
+                ModConsole.Log("Usage : script list | show | reload [nom] | folder");
+                return;
+            }
+            string arg = cmdArgs.Length > 1 ? cmdArgs[1] : null;
+            switch (cmdArgs[0])
+            {
+                case "list":
+                    CmdScriptList();
+                    return;
+                case "show":
+                    CmdScriptShow();
+                    return;
+                case "reload":
+                    CmdScriptReload(arg);
+                    return;
+                case "folder":
+                    Modding.ModIO.OpenFolderInFileBrowser(SCRIPTS_DIR, data: true);
+                    ModConsole.Log("[script] dossier de la bibliotheque ouvert dans l'explorateur");
+                    return;
+                default:
+                    ModConsole.Log("[script] sous-commande inconnue : " + cmdArgs[0]
+                        + " (list | show | reload | folder)");
+                    return;
+            }
+        }
+
+        /// <summary>
+        /// M4 : a l'ouverture d'un mapper — si c'est un Microcontroller, rafraichir son
+        /// menu depuis la bibliotheque puis reconstruire les widgets (Rebuild, PAS
+        /// Refresh : Refresh rappelle Open() et donc onMapperOpen = boucle infinie).
+        /// </summary>
+        private void OnMapperOpen()
+        {
+            try
+            {
+                BlockMapper mapper = BlockMapper.CurrentInstance;
+                if (mapper == null || mapper.Block == null)
+                {
+                    return;
+                }
+                MicrocontrollerScript mc = mapper.Block.GetComponent<MicrocontrollerScript>();
+                if (mc == null)
+                {
+                    return;
+                }
+                mc.RefreshMenu();
+                mapper.Rebuild();
+            }
+            catch (Exception)
+            {
+                // un mapper d'un autre type d'objet : rien a faire
+            }
+        }
+
+        private void CmdScriptList()
+        {
+            try
+            {
+                string[] files = Modding.ModIO.GetFiles(SCRIPTS_DIR, "*.lua", data: true);
+                ModConsole.Log("[script] bibliotheque : " + files.Length + " script(s)");
+                foreach (string file in files)
+                {
+                    ModConsole.Log("  - " + System.IO.Path.GetFileNameWithoutExtension(file));
+                }
+            }
+            catch (Exception ex)
+            {
+                ModConsole.Log("[script] list impossible : " + ex.Message);
+            }
+        }
+
+        private void CmdScriptShow()
+        {
+            List<MicrocontrollerScript> controllers = GetControllers();
+            if (m_ScanInfo != null)
+            {
+                ModConsole.Log("[script] scan : " + m_ScanInfo);
+            }
+            if (controllers.Count == 0)
+            {
+                ModConsole.Log("[script] aucun bloc Microcontroller trouve (placez-en un ou chargez une machine qui en contient)");
+                return;
+            }
+            int i = 1;
+            foreach (MicrocontrollerScript mc in controllers)
+            {
+                string name = mc.MenuSelection ?? "(aucun)";
+                string etat = mc.HasScriptFile ? "present" : "N'EXISTE PLUS (marque * au mapper)";
+                string actif = mc.IsRuntimeActive ? " ; EN SIMULATION" : string.Empty;
+                ModConsole.Log("[script] controleur " + i++ + " : \"" + name + "\" — "
+                    + etat + actif);
+            }
+        }
+
+        private void CmdScriptReload(string name)
+        {
+            List<MicrocontrollerScript> controllers = GetControllers();
+            if (m_ScanInfo != null)
+            {
+                ModConsole.Log("[script] scan : " + m_ScanInfo);
+            }
+            if (controllers.Count == 0)
+            {
+                ModConsole.Log("[script] reload : aucun bloc Microcontroller trouve");
+                return;
+            }
+            int n = 0;
+            foreach (MicrocontrollerScript mc in controllers)
+            {
+                string target = mc.MenuSelection;
+                if (name != null && target != name)
+                {
+                    continue;
+                }
+                if (mc.ReloadFromLibrary())
+                {
+                    n++;
+                }
+            }
+            ModConsole.Log("[script] reload : " + n + " controleur(s) recharge(s)");
+        }
+
+        // trace du dernier scan (diagnostic script show/reload)
+        private string m_ScanInfo;
+
+        /// <summary>
+        /// Microcontroleurs de la machine locale. Scan la liste ACTIVE (sim ou
+        /// construction) puis l'autre en secours, dedupliquise par GUID ; m_ScanInfo
+        /// decrit chaque etape (diagnostic : joueur, machine, blocs, composants).
+        /// </summary>
+        private List<MicrocontrollerScript> GetControllers()
+        {
+            m_ScanInfo = null;
+            List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
+            try
+            {
+                // SP : PlayerData.localPlayer n'est assigne qu'en MP (ChatController)
+                // -> GetLocalPlayer() retourne null en solo. Le point d'acces solo est
+                // Machine.Active() (MachineObjectTracker.activeMachine).
+                Modding.Blocks.PlayerMachine machine = GetLocalMachine();
+                if (machine == null)
+                {
+                    m_ScanInfo = "aucune machine locale (hors niveau ?)";
+                    return result;
+                }
+
+                bool sim = Modding.Game.IsSimulating;
+                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                    sim ? machine.SimulationBlocks : machine.BuildingBlocks;
+                int scanned = ScanControllers(blocks, result);
+
+                // secours : la liste inactive peut rester la seule valable selon le mode
+                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> other =
+                    sim ? machine.BuildingBlocks : machine.SimulationBlocks;
+                int scannedOther = result.Count == 0 ? ScanControllers(other, result) : 0;
+
+                m_ScanInfo = "joueur OK, machine OK ; "
+                    + scanned + " bloc(s) en " + (sim ? "simulation" : "construction")
+                    + (scannedOther > 0 ? " + " + scannedOther + " dans l'autre liste" : string.Empty)
+                    + " ; " + result.Count + " microcontroleur(s)";
+            }
+            catch (Exception ex)
+            {
+                m_ScanInfo = "exception : " + ex.GetType().FullName + " : " + ex.Message;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Machine locale : MP -> joueur local ; SP -> Machine.Active().
+        /// </summary>
+        internal static Modding.Blocks.PlayerMachine GetLocalMachine()
+        {
+            try
+            {
+                Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
+                if (player != null && player.Machine != null)
+                {
+                    return player.Machine;
+                }
+            }
+            catch (Exception)
+            {
+                // hors MP : Playerlist/PlayerData non initialises
+            }
+            try
+            {
+                Machine active = Machine.Active();
+                if (active != null)
+                {
+                    return Modding.Blocks.PlayerMachine.From(active);
+                }
+            }
+            catch (Exception)
+            {
+                // pas de machine active (menu)
+            }
+            return null;
+        }
+
+        /// <summary>Collecte les MicrocontrollerScript d'une collection de blocs (dedup par GUID).</summary>
+        private static int ScanControllers(
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks,
+            List<MicrocontrollerScript> result)
+        {
+            if (blocks == null)
+            {
+                return 0;
+            }
+            HashSet<System.Guid> seen = new HashSet<System.Guid>();
+            int scanned = 0;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                scanned++;
+                BlockBehaviour bb = block.InternalObject;
+                MicrocontrollerScript mc = bb == null ? null : bb.GetComponent<MicrocontrollerScript>();
+                if (mc != null)
+                {
+                    System.Guid guid;
+                    try
+                    {
+                        guid = block.Guid;
+                    }
+                    catch (Exception)
+                    {
+                        guid = System.Guid.Empty;
+                    }
+                    if (seen.Add(guid))
+                    {
+                        result.Add(mc);
+                    }
+                }
+            }
+            return scanned;
         }
     }
 }

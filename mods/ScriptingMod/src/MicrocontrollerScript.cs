@@ -1,15 +1,18 @@
-// MicrocontrollerScript — M1 du mod ScriptingMod (Besiege).
+// MicrocontrollerScript — bloc « Microcontroller » du mod ScriptingMod (Besiege).
 //
-// Comportement du bloc « Microcontroller » (M1 : validation du cycle bloc + runtime) :
-//   - mapper vanilla : menu du script (bibliotheque du dossier data), toggle « actif » ;
-//   - OnSimulateStart : monte une instance MoonSharp sandboxee + charge le script choisi
-//     depuis la bibliotheque (dossier data du mod) + appelle on_sim_start si defini ;
-//   - SimulateFixedUpdateHost (50 Hz) : appelle on_tick si defini ;
-//   - OnSimulateStop : demonte le runtime (etat frais a chaque simulation).
-//   - la watchdog borne chaque execution (budget M1 volontaire bas, cf. journal M0).
+//   M1 : mapper vanilla (menu script + toggle « actif »), runtime Lua par simulation,
+//        on_tick a 50 Hz, etat frais a chaque run, watchdog borne chaque execution.
+//   M2 : API capteurs (self/machine/input).  M3 : actionneurs (emulate/set_slider).
+//   M4 : persistance par NOM uniquement (decision joueur, D1-ter — cf. journal M4) :
+//     - la machine stocke le NOM du script (cle sm-script-name) — la BIBLIOTHEQUE
+//       est l'unique source de verite (pas de source embarquee) ;
+//     - le menu est repointe par nom au chargement (corrige l'index decale) et
+//       rafraichi a l'ouverture du mapper (nouveaux scripts visibles sans relancer
+//       le niveau) ;
+//     - un script absent de la bibliotheque est marque « * » au mapper et le
+//       controleur le signale clairement (il ne fait rien ce run).
 //
-// Le bloc se place dans la barre de blocs (recherche : « Microcontroller », « Script »,
-// « Lua »). Console : Ctrl+Shift+K. Voir docs/journal-m1.md.
+// Console : Ctrl+Shift+K. Journaux : docs/journal-m1..m4.md.
 
 using System.Collections.Generic;
 using Modding;
@@ -28,6 +31,13 @@ namespace ScriptingMod
         private const long WATCHDOG_BUDGET = 1000000L;
 
         private const string SCRIPTS_DIR = "Scripts";
+
+        // M4 : nom du script persiste dans le .bsg (la bibliotheque est la verite,
+        // le nom suffit a retrouver le fichier — decision joueur D1-ter).
+        private const string KEY_NAME = "sm-script-name";
+
+        // M4 : marqueur « n'existe plus » dans le menu (fichier absent).
+        private const string MISSING_MARK = "* ";
 
         private MMenu m_ScriptMenu;
         private MToggle m_ActiveToggle;
@@ -51,8 +61,151 @@ namespace ScriptingMod
             m_ScriptMenu = AddMenu("script", 0, GetScriptList(), footerMenu: false);
             m_ActiveToggle = AddToggle("actif", "actif", true);
 
-            // log de debug M1 au placement (visible avec show_logs true)
             Debug.Log("[ScriptingMod] Microcontroleur : SafeAwake (bloc instancie)");
+        }
+
+        // --- M4 : persistance par nom (D1-ter) — la bibliotheque est la verite ---
+
+        public override void OnLoad(XDataHolder data)
+        {
+            if (!data.HasKey(KEY_NAME))
+            {
+                return;     // machine pre-M4 : l'index vanilla suffit (comportement M1)
+            }
+            string name = data.ReadString(KEY_NAME);
+            if (string.IsNullOrEmpty(name))
+            {
+                return;
+            }
+            Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
+            // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
+            // bibliotheque qui a evolue — bug latent M1 corrige).
+            RepointMenu(name);
+        }
+
+        public override void OnSave(XDataHolder data)
+        {
+            string name = MenuSelection;
+            if (name != null && name != "(aucun script)")
+            {
+                data.Write(KEY_NAME, name);
+            }
+        }
+
+        /// <summary>
+        /// Selectionne dans le menu l'entree correspondant au nom (l'ajoute marquee
+        /// « * n'existe plus » si le fichier est absent de la bibliotheque).
+        /// SetValue n'invoque pas ValueChanged : pas d'evenement parasite.
+        /// </summary>
+        private void RepointMenu(string name)
+        {
+            if (m_ScriptMenu == null || name == null)
+            {
+                return;
+            }
+            List<string> items = m_ScriptMenu.Items;
+            int idx = -1;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (ResolveName(items[i]) == name)
+                {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx < 0)
+            {
+                items.Add(MISSING_MARK + name);
+                idx = items.Count - 1;
+            }
+            else
+            {
+                // marqueur dynamique : marque si le fichier est desormais absent
+                items[idx] = (ReadScript(name) != null) ? name : MISSING_MARK + name;
+            }
+            m_ScriptMenu.SetValue(idx);
+        }
+
+        /// <summary>
+        /// Rafraichit le menu depuis la bibliotheque (nouveaux scripts visibles sans
+        /// relancer le niveau) en conservant la selection courante par nom.
+        /// Appele a l'ouverture du mapper (onMapperOpen, cf. ScriptingModEntryPoint).
+        /// </summary>
+        internal void RefreshMenu()
+        {
+            if (m_ScriptMenu == null)
+            {
+                return;
+            }
+            string current = MenuSelection;
+            m_ScriptMenu.Items = GetScriptList();
+            if (!string.IsNullOrEmpty(current) && current != "(aucun script)")
+            {
+                RepointMenu(current);
+            }
+        }
+
+        /// <summary>Nom reel d'une entree de menu (retire le marqueur « n'existe plus »).</summary>
+        internal static string ResolveName(string item)
+        {
+            if (string.IsNullOrEmpty(item))
+            {
+                return null;
+            }
+            return item.StartsWith(MISSING_MARK) ? item.Substring(MISSING_MARK.Length) : item;
+        }
+
+        /// <summary>Nom selectionne au menu (sans marqueur) — cible de reload/show.</summary>
+        internal string MenuSelection
+        {
+            get { return m_ScriptMenu == null ? null : ResolveName(m_ScriptMenu.Selection); }
+        }
+
+        /// <summary>Vrai si le runtime de ce controleur est monte (simulation en cours).</summary>
+        internal bool IsRuntimeActive
+        {
+            get { return m_Lua != null; }
+        }
+
+        /// <summary>Le script selectionne existe-t-il dans la bibliotheque ?</summary>
+        internal bool HasScriptFile
+        {
+            get { return ReadScript(MenuSelection) != null; }
+        }
+
+        /// <summary>
+        /// M4 : script reload — relit le fichier et remonte le runtime a chaud si ce
+        /// controleur etait en simulation.
+        /// </summary>
+        internal bool ReloadFromLibrary()
+        {
+            string name = MenuSelection;
+            if (name == null || name == "(aucun script)")
+            {
+                ModConsole.Log("[ScriptingMod] reload : aucun script associe");
+                return false;
+            }
+            string file = ReadScript(name);
+            if (file == null)
+            {
+                ModConsole.Log("[ScriptingMod] reload : fichier introuvable : " + name
+                    + " (renomme/supprime ? — 'script list' pour la bibliotheque)");
+                return false;
+            }
+
+            bool remount = m_Lua != null && Modding.Game.IsSimulating;
+            if (remount)
+            {
+                OnSimulateStop();       // on_sim_stop + relache des canaux + demontage
+            }
+            RepointMenu(name);          // marqueur « n'existe plus » retire si revenu
+            if (remount)
+            {
+                OnSimulateStart();      // remontage avec la source fraiche
+            }
+            ModConsole.Log("[ScriptingMod] " + name + " : recharge"
+                + (remount ? " et re-execute" : " (applique au prochain debut de sim)"));
+            return true;
         }
 
         public override void OnSimulateStart()
@@ -68,11 +221,16 @@ namespace ScriptingMod
                 return;
             }
 
-            m_ScriptName = m_ScriptMenu.Selection;   // nom de fichier sans extension
-            string source = ReadScript(m_ScriptName);
+            // M4 : la bibliotheque est l'unique source (D1-ter) — resolution par nom.
+            string name = MenuSelection;
+            string source = ReadScript(name);
+
+            m_ScriptName = name;
             if (source == null)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroleur : script introuvable : " + m_ScriptName);
+                ModConsole.Log("[ScriptingMod] Microcontroleur : script \""
+                    + (name ?? "?") + "\" introuvable dans la bibliotheque (renomme/supprime ?)"
+                    + " — ce controleur ne fait rien ce run. 'script list' pour voir la bibliotheque.");
                 return;
             }
 
@@ -290,6 +448,10 @@ namespace ScriptingMod
 
         private void CallIfDefined(string func)
         {
+            if (m_Lua == null)
+            {
+                return;     // runtime non monte (chargement KO) — rien a appeler
+            }
             DynValue f = m_Lua.Globals.Get(func);
             if (f != null && f.Type == MoonDataType.Function)
             {

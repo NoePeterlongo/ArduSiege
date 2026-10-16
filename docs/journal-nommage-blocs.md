@@ -1,11 +1,38 @@
-# Journal nommage-blocs — expérience : adresser les blocs par nom
+# Journal nommage-blocs — expérience : adresser les blocs
 
 > Branche `nommage-blocs` (post-M4). Motivation joueur : l'identification des blocs
 > depuis Lua est fastidieuse (`machine:blocks("Cog")` + index) ; et le système vanilla
-> de « variables à la place des touches » ne doit pas être un prérequis pour
-> l'adressage (il reste utile pour `emulate`, indépendant).
+> de « variables à la place des touches » ne devait pas être un prérequis pour
+> l'adressage.
 
-## État : EN COURS (test joueur attendu)
+## État : TERMINÉ — décision joueur : seul `machine:refs(canal)` est retenu
+
+L'expérience a traversé trois designs (GUID → noms joueur par position → refs) ; le
+verdict d'usage est **refs seul** : le mécanisme vanilla de liaisons par message,
+exposé en lecture, bat les noms joueur sur tous les critères — persistance native
+dans le `.bsg` (zéro stockage côté mod), survit au déplacement du bloc, adressage de
+groupe, multi-tags (`a;b` : canal de contrôle ET identification sur la même touche).
+
+### API retenue (fusionnée dans master)
+
+- `machine:refs(canal)` → table indexée des blocs dont une touche écoute le message
+  vanilla `canal` (scan des `MKey` publiques : `useMessage` + `message[]`) ;
+- démo `noms.lua` (SMDEMO v3) : utilise `refs("pousser")` comme cible de
+  `set_slider` — même préparation que `actionneurs.lua` ;
+- la liaison se fait dans le mapper du bloc (champ variable, Advanced Building —
+  prérequis documenté au journal M3).
+
+### Designs explorés et écartés (historique pour la reprise)
+
+| Design | Pourquoi écarté |
+|---|---|
+| GUID comme clé | `Machine.AddBlocksFromInfo` régénère TOUS les GUID à chaque chargement (decomp l.3232) — noms morts à chaque rechargement |
+| Nom joueur → position locale (mm), stocké dans le Microcontroller | Fonctionne mais : casse au déplacement, nécessite un contrôleur dans la machine, stockage à maintenir — tout ce que refs donne gratuitement |
+| Nom dans `LastState` du bloc (« comme les sliders ») | Perte silencieuse à chaque régénération d'état (mapper, undo) — aucun hook de sauvegarde machine pour réinjecter |
+| Étude concurrentielle | ilyshk4 : clés de référence vanilla (`get_refs_control('rotor')`) — le même choix final que nous ; LenchScripterMod : IDs séquentiels auto (« WHEEL 1 », renumérotation silencieuse) — personne ne fait de noms joueur persistants |
+
+Code retiré au nettoyage : commandes `script name/names/unname`, `machine:block()` et
+`machine:named()`, stockage `sm-block-names` dans le contrôleur, `BlockNames.cs`.
 
 ---
 

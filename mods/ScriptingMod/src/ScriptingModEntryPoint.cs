@@ -84,7 +84,7 @@ namespace ScriptingMod
 
             // M4 : bibliotheque + sources embarquees (D1-ter : nom seulement)
             ModConsole.RegisterCommand("script", ScriptCommand,
-                "script list|show|reload [nom]|name|names|unname|folder — bibliotheque + nommage des blocs");
+                "script list|show|reload [nom]|folder — bibliotheque de scripts");
 
             // M4 : rafraichir le menu des Microcontroleurs a l'ouverture du mapper
             // (nouveaux scripts visibles sans relancer le niveau).
@@ -113,7 +113,7 @@ namespace ScriptingMod
                 WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
                 WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
                 WriteDemoIfOutdated("actionneurs.lua", 2, ACTIONNEURS_LUA);
-                WriteDemoIfOutdated("noms.lua", 2, NOMS_LUA);
+                WriteDemoIfOutdated("noms.lua", 3, NOMS_LUA);
             }
             catch (Exception ex)
             {
@@ -268,32 +268,26 @@ namespace ScriptingMod
             "    print(\"actionneurs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo nommage-blocs : noms + refs (SMDEMO v2)
+        // Demo refs : adressage des blocs par variable vanilla (SMDEMO v3)
         private const string NOMS_LUA =
-            "-- noms.lua (SMDEMO v2) : adresser les blocs par nom OU par variable vanilla\n" +
-            "-- NOMS : visiez un bloc (souris) et tapez en console : script name moteur\n" +
-            "-- REFS : liez la touche d'un bloc au MESSAGE \"pousser\" dans son mapper\n" +
-            "--       (variable/Advanced Building) — machine:refs(\"pousser\") les liste.\n" +
+            "-- noms.lua (SMDEMO v3) : adresser les blocs par variable vanilla (refs)\n" +
+            "-- PREPARATION : liez la touche d'un bloc au MESSAGE \"pousser\" dans son\n" +
+            "-- mapper (champ texte/variable, Advanced Building) ; plusieurs tags\n" +
+            "-- possibles (a;b) : controle ET identification sur la meme touche.\n" +
             "local ticks = 0\n" +
             "local moteur = nil\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    for nom, bloc in pairs(machine:named()) do\n" +
-            "        print(\"nom \\\"\" .. nom .. \"\\\" -> \" .. bloc.type)\n" +
-            "    end\n" +
             "    local pousseurs = machine:refs(\"pousser\")\n" +
             "    print(#pousseurs .. \" bloc(s) ecoutent la variable 'pousser'\")\n" +
             "    for i, b in ipairs(pousseurs) do\n" +
-            "        print(\"  refs: \" .. b.type)\n" +
+            "        print(\"  refs : \" .. b.type)\n" +
             "    end\n" +
-            "    moteur = machine:block(\"moteur\")\n" +
-            "    if moteur == nil then\n" +
-            "        print(\"aucun bloc nomme 'moteur' — visez-le et tapez : script name moteur\")\n" +
-            "        return\n" +
-            "    end\n" +
-            "    print(\"bloc nomme 'moteur' : \" .. moteur.type)\n" +
-            "    for k, d in pairs(moteur.sliders) do\n" +
-            "        print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "    if #pousseurs > 0 then\n" +
+            "        moteur = pousseurs[1]\n" +
+            "        for k, d in pairs(moteur.sliders) do\n" +
+            "            print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "        end\n" +
             "    end\n" +
             "end\n" +
             "\n" +
@@ -301,15 +295,15 @@ namespace ScriptingMod
             "    emulate(\"pousser\", input:is_held(\"P\"))\n" +
             "    ticks = ticks + 1\n" +
             "    if moteur == nil or ticks % 100 ~= 0 then return end\n" +
-            "    -- meme demo que actionneurs.lua, mais sur le bloc NOMME\n" +
+            "    -- module la vitesse du bloc ecouteur toutes les 2 s (demo set_slider)\n" +
             "    local v = moteur:slider(\"speed\")\n" +
             "    local cible = (v < 1.5) and 2.5 or 0.5\n" +
             "    moteur:set_slider(\"speed\", cible)\n" +
-            "    print(string.format(\"  [nomme] slider speed : %.1f -> %.1f\", v, cible))\n" +
+            "    print(string.format(\"  [refs] slider speed : %.1f -> %.1f\", v, cible))\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"noms : fin apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"refs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
         // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---
@@ -497,7 +491,7 @@ namespace ScriptingMod
         {
             if (cmdArgs.Length == 0)
             {
-                ModConsole.Log("Usage : script list | show | reload [nom] | name/names/unname | folder");
+                ModConsole.Log("Usage : script list | show | reload [nom] | folder");
                 return;
             }
             string arg = cmdArgs.Length > 1 ? cmdArgs[1] : null;
@@ -512,22 +506,13 @@ namespace ScriptingMod
                 case "reload":
                     CmdScriptReload(arg);
                     return;
-                case "name":
-                    CmdBlockName(arg);
-                    return;
-                case "names":
-                    CmdBlockNames();
-                    return;
-                case "unname":
-                    CmdBlockUnname(arg);
-                    return;
                 case "folder":
                     Modding.ModIO.OpenFolderInFileBrowser(SCRIPTS_DIR, data: true);
                     ModConsole.Log("[script] dossier de la bibliotheque ouvert dans l'explorateur");
                     return;
                 default:
                     ModConsole.Log("[script] sous-commande inconnue : " + cmdArgs[0]
-                        + " (list | show | reload | name | names | unname | folder)");
+                        + " (list | show | reload | folder)");
                     return;
             }
         }
@@ -704,150 +689,6 @@ namespace ScriptingMod
                 // pas de machine active (menu)
             }
             return null;
-        }
-
-        // --- Experience nommage-blocs : script name/names/unname ---
-
-        /// <summary>
-        /// Controleurs de CONSTRUCTION (c'est leur OnSave qui persiste les noms dans
-        /// le .bsg — les instances de sim sont des copies non sauvegardees).
-        /// </summary>
-        private static List<MicrocontrollerScript> GetBuildingControllers()
-        {
-            List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
-            Modding.Blocks.PlayerMachine machine = GetLocalMachine();
-            if (machine == null)
-            {
-                return result;
-            }
-            foreach (Modding.Blocks.Block block in machine.BuildingBlocks)
-            {
-                BlockBehaviour bb = block.InternalObject;
-                MicrocontrollerScript mc = bb == null ? null : bb.GetComponent<MicrocontrollerScript>();
-                if (mc != null)
-                {
-                    result.Add(mc);
-                }
-            }
-            return result;
-        }
-
-        /// <summary>Cible du nommage : 1 bloc selectionne (Advanced Building), sinon le bloc vise.</summary>
-        private static BlockBehaviour GetNamedTarget()
-        {
-            try
-            {
-                List<BlockBehaviour> selection = AddPiece.SelectedBlocks;
-                if (selection != null)
-                {
-                    if (selection.Count == 1)
-                    {
-                        return selection[0];
-                    }
-                    if (selection.Count > 1)
-                    {
-                        ModConsole.Log("[script] selection multiple (" + selection.Count
-                            + ") — nommez un bloc a la fois, ou deselectionnez et visez-le");
-                        return null;
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // pas de mode construction (instance AddPiece absente) — on tente le survol
-            }
-            try
-            {
-                AddPiece builder = SingleInstanceFindOnly<AddPiece>.Instance;
-                return builder == null ? null : builder.HoveredBlock;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-
-        private void CmdBlockName(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                ModConsole.Log("Usage : script name <nom> — nomme le bloc selectionne (Advanced Building) ou vise");
-                return;
-            }
-            BlockBehaviour target = GetNamedTarget();
-            if (target == null)
-            {
-                ModConsole.Log("[script] aucun bloc a nommer : selectionnez-en un (Advanced Building) ou visez-le avec la souris");
-                return;
-            }
-            List<MicrocontrollerScript> controllers = GetBuildingControllers();
-            if (controllers.Count == 0)
-            {
-                ModConsole.Log("[script] impossible de nommer : aucun bloc Microcontroller dans la machine"
-                    + " (les noms sont embarques dans ses donnees — posez-en un)");
-                return;
-            }
-            // CLE = position locale dans la machine (les GUID sont regeneres a chaque
-            // chargement — cf. BlockNames.cs). Limite : deplacer le bloc casse son nom.
-            UnityEngine.Vector3 pos = target.transform.localPosition;
-            int n = 0;
-            foreach (MicrocontrollerScript mc in controllers)
-            {
-                mc.SetBlockName(name, pos);     // synchronise tous les controleurs
-                n++;
-            }
-            ModConsole.Log("[script] bloc " + (target.Prefab.name ?? "?") + " nomme \"" + name
-                + "\" (embarque dans " + n + " controleur(s)) — cote Lua : machine:block(\"" + name + "\")");
-        }
-
-        private void CmdBlockNames()
-        {
-            List<MicrocontrollerScript> controllers = GetBuildingControllers();
-            if (controllers.Count == 0)
-            {
-                ModConsole.Log("[script] aucun bloc Microcontroller dans la machine (les noms vivent dans ses donnees)");
-                return;
-            }
-            MicrocontrollerScript reference = controllers[0];
-            Modding.Blocks.PlayerMachine machine = GetLocalMachine();
-
-            int n = 0;
-            foreach (KeyValuePair<string, UnityEngine.Vector3> kv in reference.BlockNamesTable)
-            {
-                n++;
-                string ou = "hors machine courante";
-                Modding.Blocks.Block b = BlockNames.Resolve(machine, kv.Value);
-                if (b != null && b.InternalObject != null)
-                {
-                    ou = b.InternalObject.Prefab.name ?? "?";
-                }
-                ModConsole.Log("[script]   \"" + kv.Key + "\" -> " + ou);
-            }
-            if (n == 0)
-            {
-                ModConsole.Log("[script] aucun nom defini (script name <nom> en visant un bloc)");
-            }
-        }
-
-        private void CmdBlockUnname(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                ModConsole.Log("Usage : script unname <nom>");
-                return;
-            }
-            List<MicrocontrollerScript> controllers = GetBuildingControllers();
-            int n = 0;
-            foreach (MicrocontrollerScript mc in controllers)
-            {
-                if (mc.RemoveBlockName(name))
-                {
-                    n++;
-                }
-            }
-            ModConsole.Log(n > 0
-                ? "[script] nom \"" + name + "\" supprime (" + n + " controleur(s))"
-                : "[script] nom \"" + name + "\" inconnu");
         }
 
         /// <summary>Collecte les MicrocontrollerScript d'une collection de blocs (dedup par GUID).</summary>

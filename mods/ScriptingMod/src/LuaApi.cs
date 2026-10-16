@@ -34,10 +34,7 @@ namespace ScriptingMod
             {
                 lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock)));
             }
-            // nommage-blocs : la machine expose block()/named() depuis les donnees
-            // du CONTROLEUR (les noms sont embarques dans son .bsg)
-            MicrocontrollerScript mc = controller as MicrocontrollerScript;
-            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, mc)));
+            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine)));
             lua.Globals.Set("input", UserData.Create(new LuaInputApi()));
         }
 
@@ -258,20 +255,9 @@ namespace ScriptingMod
     {
         private readonly Modding.Blocks.PlayerMachine m_Machine;
 
-        // nommage-blocs : controleur porteur des noms (null en contexte console sans
-        // controleur — block()/named() rendent alors nil/table vide)
-        private readonly MicrocontrollerScript m_Controller;
-
         internal LuaMachineApi(Modding.Blocks.PlayerMachine machine)
         {
             m_Machine = machine;
-            m_Controller = null;
-        }
-
-        internal LuaMachineApi(Modding.Blocks.PlayerMachine machine, MicrocontrollerScript controller)
-        {
-            m_Machine = machine;
-            m_Controller = controller;
         }
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
@@ -297,12 +283,6 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, m_Machine.Size);
                 case "blocks":
                     return DynValue.NewCallback((ctx, args) => BuildBlocks(script, args), "blocks");
-                // --- Experience nommage-blocs : acces par nom (BlockNames.tsv) ---
-                case "block":
-                    return DynValue.NewCallback((ctx, args) => BlockByName(script, args), "block");
-                case "named":
-                    // methode (comme blocks()) : machine:named() -> table nom -> bloc
-                    return DynValue.NewCallback((ctx, args) => NamedTable(script), "named");
                 // --- Refs : blocs qui ecoutent une variable/message vanilla (liaisons mapper) ---
                 case "refs":
                     return DynValue.NewCallback((ctx, args) => RefsTable(script, args), "refs");
@@ -362,43 +342,6 @@ namespace ScriptingMod
                 {
                     n++;
                     table.Set(n, UserData.Create(new LuaBlockApi(block)));
-                }
-            }
-            return result;
-        }
-
-        /// <summary>machine:block("nom") -> bloc nomme (nil si absent de la machine).</summary>
-        private DynValue BlockByName(Script script, CallbackArguments args)
-        {
-            string name = LuaBlockApi.FirstStringArg(args);
-            if (name == null)
-            {
-                throw new ScriptRuntimeException("machine:block(nom) : nom requis, ex. machine:block(\"moteur_gauche\")");
-            }
-            if (m_Controller == null)
-            {
-                return DynValue.Nil;    // contexte console sans controleur
-            }
-            Modding.Blocks.Block found = m_Controller.ResolveBlockByName(name);
-            return found == null ? DynValue.Nil : UserData.Create(new LuaBlockApi(found));
-        }
-
-        /// <summary>machine:named() -> table nom -> bloc (uniquement ceux resolus dans la machine).</summary>
-        private DynValue NamedTable(Script script)
-        {
-            DynValue result = DynValue.NewTable(script);
-            Table table = result.Table;
-            if (m_Controller == null)
-            {
-                return result;     // contexte console sans controleur
-            }
-            foreach (System.Collections.Generic.KeyValuePair<string, UnityEngine.Vector3> kv
-                in m_Controller.BlockNamesTable)
-            {
-                Modding.Blocks.Block found = BlockNames.Resolve(m_Machine, kv.Value);
-                if (found != null)
-                {
-                    table.Set(kv.Key, UserData.Create(new LuaBlockApi(found)));
                 }
             }
             return result;

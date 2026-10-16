@@ -495,9 +495,13 @@ namespace ScriptingMod
         private void CmdScriptShow()
         {
             List<MicrocontrollerScript> controllers = GetControllers();
+            if (m_ScanInfo != null)
+            {
+                ModConsole.Log("[script] scan : " + m_ScanInfo);
+            }
             if (controllers.Count == 0)
             {
-                ModConsole.Log("[script] aucun bloc Microcontroller dans la machine locale");
+                ModConsole.Log("[script] aucun bloc Microcontroller trouve (placez-en un ou chargez une machine qui en contient)");
                 return;
             }
             int i = 1;
@@ -513,9 +517,13 @@ namespace ScriptingMod
         private void CmdScriptReload(string name)
         {
             List<MicrocontrollerScript> controllers = GetControllers();
+            if (m_ScanInfo != null)
+            {
+                ModConsole.Log("[script] scan : " + m_ScanInfo);
+            }
             if (controllers.Count == 0)
             {
-                ModConsole.Log("[script] aucun bloc Microcontroller dans la machine locale");
+                ModConsole.Log("[script] reload : aucun bloc Microcontroller trouve");
                 return;
             }
             int n = 0;
@@ -596,34 +604,89 @@ namespace ScriptingMod
             }
         }
 
-        /// <summary>Microcontroleurs de la machine locale (blocs en sim ou en construction).</summary>
-        private static List<MicrocontrollerScript> GetControllers()
+        // trace du dernier scan (diagnostic script show/reload)
+        private string m_ScanInfo;
+
+        /// <summary>
+        /// Microcontroleurs de la machine locale. Scan la liste ACTIVE (sim ou
+        /// construction) puis l'autre en secours, dedupliquise par GUID ; m_ScanInfo
+        /// decrit chaque etape (diagnostic : joueur, machine, blocs, composants).
+        /// </summary>
+        private List<MicrocontrollerScript> GetControllers()
         {
+            m_ScanInfo = null;
             List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
             try
             {
                 Modding.Common.Player player = Modding.Common.Player.GetLocalPlayer();
-                if (player == null || player.Machine == null)
+                if (player == null)
                 {
+                    m_ScanInfo = "pas de joueur local (menu principal ?)";
                     return result;
                 }
-                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
-                    Modding.Game.IsSimulating ? player.Machine.SimulationBlocks : player.Machine.BuildingBlocks;
-                foreach (Modding.Blocks.Block block in blocks)
+                Modding.Blocks.PlayerMachine machine = player.Machine;
+                if (machine == null)
                 {
-                    BlockBehaviour bb = block.InternalObject;
-                    MicrocontrollerScript mc = bb == null ? null : bb.GetComponent<MicrocontrollerScript>();
-                    if (mc != null)
+                    m_ScanInfo = "joueur sans machine (hors niveau ?)";
+                    return result;
+                }
+
+                bool sim = Modding.Game.IsSimulating;
+                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                    sim ? machine.SimulationBlocks : machine.BuildingBlocks;
+                int scanned = ScanControllers(blocks, result);
+
+                // secours : la liste inactive peut rester la seule valable selon le mode
+                System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> other =
+                    sim ? machine.BuildingBlocks : machine.SimulationBlocks;
+                int scannedOther = result.Count == 0 ? ScanControllers(other, result) : 0;
+
+                m_ScanInfo = "joueur OK, machine OK ; "
+                    + scanned + " bloc(s) en " + (sim ? "simulation" : "construction")
+                    + (scannedOther > 0 ? " + " + scannedOther + " dans l'autre liste" : string.Empty)
+                    + " ; " + result.Count + " microcontroleur(s)";
+            }
+            catch (Exception ex)
+            {
+                m_ScanInfo = "exception : " + ex.GetType().FullName + " : " + ex.Message;
+            }
+            return result;
+        }
+
+        /// <summary>Collecte les MicrocontrollerScript d'une collection de blocs (dedup par GUID).</summary>
+        private static int ScanControllers(
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks,
+            List<MicrocontrollerScript> result)
+        {
+            if (blocks == null)
+            {
+                return 0;
+            }
+            HashSet<System.Guid> seen = new HashSet<System.Guid>();
+            int scanned = 0;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                scanned++;
+                BlockBehaviour bb = block.InternalObject;
+                MicrocontrollerScript mc = bb == null ? null : bb.GetComponent<MicrocontrollerScript>();
+                if (mc != null)
+                {
+                    System.Guid guid;
+                    try
+                    {
+                        guid = block.Guid;
+                    }
+                    catch (Exception)
+                    {
+                        guid = System.Guid.Empty;
+                    }
+                    if (seen.Add(guid))
                     {
                         result.Add(mc);
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                ModConsole.Log("[script] machine locale inaccessible : " + ex.Message);
-            }
-            return result;
+            return scanned;
         }
     }
 }

@@ -85,18 +85,45 @@
 Build OK (Docker mcs). Scan propre : `MemberInfo::` 0, pas de StreamReader/Writer,
 pas de System.Reflection hors metadata.
 
-## Étape 6 — Test joueur (attendu)
+## Étape 6 — PIVOT JOUEUR (D1-ter) : persistance par nom uniquement
 
-1. Relancer le jeu, poser un Microcontroller, associer un script au mapper →
-   console : `script "..." associe (source copiee dans la machine)` ;
-2. **Sauver la machine**, quitter le niveau, recharger la machine → sim : le script
-   tourne (persistance nom+source ; re-point du menu par nom) ;
-3. éditer le `.lua` dans VS Code → `script reload` (sim en cours : re-exécution) ;
-4. renommer/supprimer le fichier → sim : `fichier absent, source embarquee (machine
-   autonome)` ; mapper : entrée `* nom` ;
-5. `script show` avant/après (états), `script list`, `script folder` ;
-6. avec le script orphelin, associer un autre script → console : sauvegarde
-   `.recup.lua` ;
-7. `script export nom` depuis un orphelin → fichier recréé, marqueur retiré.
+- **Retours joueur** sur le modèle embarqué (D1-bis implémenté ci-dessus) : parfois
+  la machine semble pointer vers le script renommé ; la sauvegarde n'embarque pas la
+  nouvelle version éditée ; changer de script écrase l'orphelin malgré le `.recup` ;
+  les nouveaux scripts n'apparaissent pas au menu sans relancer le niveau.
+- **Décision joueur** : **abandonner la source embarquée** — la bibliothèque est
+  l'unique source de vérité ; la machine ne stocke que le NOM (`sm-script-name`).
+  Plus simple, plus fiable, aucun état divergent. Conséquence assumée : plus de
+  promesse « machine autonome » (partage = le destinataire doit avoir le script dans
+  sa bibliothèque, même nom). D1-bis reste documenté (workflow) au cas où le partage
+  Workshop devienne central.
+- **Implémentation** :
+  - retrait : `sm-script-source`, copie à l'association, `BackupOrphan`, `export`,
+    états synchronisé/différent, fallback embarqué au sim start ;
+  - conservation : re-point du menu **par nom** au chargement (corrige l'index
+    décalé), marqueur `* n'existe plus` au mapper, message console clair si le
+    script manque au début de sim (le contrôleur ne fait rien ce run) ;
+  - **menu rafraîchi à l'ouverture du mapper** : `BlockMapper.onMapperOpen` →
+    `RefreshMenu()` (re-liste la bibliothèque, conserve la sélection par nom) puis
+    `mapper.Rebuild()` — NB : PAS `mapper.Refresh()`, qui rappelle `Open()` donc
+    `onMapperOpen` = boucle infinie ;
+  - `script show` : nom + `present` / `N'EXISTE PLUS` + en sim ; `script reload`
+    relit le fichier et remonte le runtime à chaud.
+- Build OK ; scan propre.
+
+## Étape 7 — Test joueur (attendu, modèle D1-ter)
+
+1. Relancer le jeu, poser un Microcontroller, sélectionner un script au mapper →
+   sim : il tourne ;
+2. **créer un nouveau script** `.lua` dans la bibliothèque (VS Code) → ouvrir le
+   mapper du contrôleur : **le nouveau script est visible sans relancer le niveau** ;
+3. **Sauver la machine**, quitter le niveau, recharger → sim : le bon script tourne
+   (persistance par nom, même si la bibliothèque a évolué) ;
+4. éditer le `.lua` → `script reload` (sim en cours : re-exécution) ;
+5. **renommer/supprimer** le fichier → mapper : entrée `* nom` (« n'existe plus ») ;
+   sim : message console clair, contrôleur inerte ce run ; `script show` :
+   `N'EXISTE PLUS` ;
+6. remettre le fichier sous le même nom → mapper sans marqueur, sim : le script
+   tourne à nouveau.
 
 *(à compléter : résultats)*

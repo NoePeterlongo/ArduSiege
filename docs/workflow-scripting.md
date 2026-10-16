@@ -77,6 +77,29 @@ Implications M4 (spéc d'implémentation) :
   silencieusement (suffixe proposé si collision) ;
 - comparaison embarqué/fichier au `OnSimulateStart` et à l'ouverture du mapper.
 
+### Amendement D1-ter (2026-10-15, décision joueur post-tests M4) — persistance par NOM uniquement
+
+Après les premiers tests joueurs, l'automate D1-bis (source embarquée + 3 états) est
+**abandonné** au profit d'un modèle radical plus simple :
+
+- **La bibliothèque est l'unique source de vérité.** Le `.bsg` ne stocke que le **nom**
+  du script (`sm-script-name`) — le fichier est relu à chaque simulation.
+- Un script absent de la bibliothèque (renommé/supprimé) est **marqué `*` au mapper**
+  (« n'existe plus ») et le contrôleur le signale clairement à la console (il ne fait
+  rien ce run). Rien n'est caché, rien n'est dupliqué, rien ne diverge.
+- L'index vanilla du menu reste persisté mais est **repointé par nom** au chargement
+  (corrige le décalage quand la bibliothèque évolue).
+- Le menu est **rafraîchi à l'ouverture du mapper** (`BlockMapper.onMapperOpen` +
+  `Rebuild()`) : les nouveaux scripts sont visibles sans relancer le niveau.
+- Conséquence assumée : **plus de promesse « machine autonome »** — une machine
+  partagée exige que le destinataire ait le script dans SA bibliothèque (même nom).
+  Si le partage Workshop devient central, réévaluer un jour l'embarqué (D1-bis reste
+  documenté ci-dessus à cet effet).
+
+Commandes console associées : `script list | show | reload [nom] | folder`
+(`export` disparaît — sans source embarquée, il n'a plus d'objet).
+
+
 ### D2 — Modèle d'exécution
 
 - Une **instance MoonSharp `Script` par bloc contrôleur** (indépendants, budgets séparés).
@@ -172,10 +195,11 @@ sont manipulés côté C# via `ModIO`, jamais depuis le Lua.
   scanner + bench tick.
 - **M1** précise le mapper du contrôleur : `MMenu` scripts (bibliothèque), `MToggle` actif.
 - **M2/M3** inchangés (capteurs, actionneurs, adressage).
-- **M4** devient explicitement : persistance `.bsg` (D1) + **automate de
-  synchronisation D1-bis** (états synchronisé / fichier avance / orphelin) +
-  commandes console (D5 : `script list/reload/show/export`) + seed des exemples (D8)
-  + gestion d'erreurs complète (D3).
+- **M4** devient explicitement : persistance **par nom** (D1-ter : `sm-script-name`,
+  menu repointé par nom + rafraîchi à l'ouverture du mapper) + commandes console (D5 :
+  `script list/reload/show/folder`) + gestion d'erreurs complète (D3).
+  *(Note : l'automate D1-bis a été implémenté puis abandonné aux tests joueurs —
+  historique conservé en D1-bis, modèle retenu en D1-ter.)*
 - **M5** ajoute : licences/mentions (D8), politique de versioning, étude ilyshk4.
 
 ---

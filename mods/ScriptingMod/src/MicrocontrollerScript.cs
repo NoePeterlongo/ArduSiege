@@ -3,15 +3,14 @@
 //   M1 : mapper vanilla (menu script + toggle « actif »), runtime Lua par simulation,
 //        on_tick a 50 Hz, etat frais a chaque run, watchdog borne chaque execution.
 //   M2 : API capteurs (self/machine/input).  M3 : actionneurs (emulate/set_slider).
-//   M4 : persistance .bsg + automate D1-bis :
-//     - OnSave/OnLoad : la source du script voyage DANS la machine (D1) — la machine
-//       est autonome (Workshop, fichier local renomme/supprime) ;
-//     - l'association dans le mapper COPIE le fichier vers l'embarque ;
-//     - 3 etats (D1-bis, docs/workflow-scripting.md) : synchronise / fichier avance /
-//       orphelin (fichier absent, marque « * » dans le menu) ;
-//     - au debut de sim : le FICHIER gagne s'il existe, l'EMBARQUE sinon ;
-//     - remplacer un script orphelin sauvegarde automatiquement l'ancienne source
-//       en <nom>.recup.lua (jamais de perte silencieuse).
+//   M4 : persistance par NOM uniquement (decision joueur, D1-ter — cf. journal M4) :
+//     - la machine stocke le NOM du script (cle sm-script-name) — la BIBLIOTHEQUE
+//       est l'unique source de verite (pas de source embarquee) ;
+//     - le menu est repointe par nom au chargement (corrige l'index decale) et
+//       rafraichi a l'ouverture du mapper (nouveaux scripts visibles sans relancer
+//       le niveau) ;
+//     - un script absent de la bibliotheque est marque « * » au mapper et le
+//       controleur le signale clairement (il ne fait rien ce run).
 //
 // Console : Ctrl+Shift+K. Journaux : docs/journal-m1..m4.md.
 
@@ -33,12 +32,12 @@ namespace ScriptingMod
 
         private const string SCRIPTS_DIR = "Scripts";
 
-        // M4 : cles XDataHolder de la source embarquee (D1 — la verite de la machine).
+        // M4 : nom du script persiste dans le .bsg (la bibliotheque est la verite,
+        // le nom suffit a retrouver le fichier — decision joueur D1-ter).
         private const string KEY_NAME = "sm-script-name";
-        private const string KEY_SOURCE = "sm-script-source";
 
-        // M4 : marqueur d'orphelin dans le menu (fichier absent de la bibliotheque).
-        private const string ORPHAN_MARK = "* ";
+        // M4 : marqueur « n'existe plus » dans le menu (fichier absent).
+        private const string MISSING_MARK = "* ";
 
         private MMenu m_ScriptMenu;
         private MToggle m_ActiveToggle;
@@ -48,11 +47,6 @@ namespace ScriptingMod
         private LuaActuatorApi m_Actuator;
         private int m_TickCount;
         private string m_ScriptName;
-
-        // M4 : source embarquee (copie de la bibliotheque faite a l'association,
-        // resynchronisee par reload ; verite de la machine quand le fichier est absent).
-        private string m_EmbeddedName;
-        private string m_EmbeddedSource;
 
         // M3 : indispensable — sans ce flag, la machine n'active pas le systeme
         // d'emulation (Machine.cs lit Prefab.EmulatesAnyKeys, propage depuis notre
@@ -67,113 +61,49 @@ namespace ScriptingMod
             m_ScriptMenu = AddMenu("script", 0, GetScriptList(), footerMenu: false);
             m_ActiveToggle = AddToggle("actif", "actif", true);
 
-            // M4 : l'association dans le mapper copie le fichier vers l'embarque (D1).
-            m_ScriptMenu.ValueChanged += OnScriptMenuChanged;
-
             Debug.Log("[ScriptingMod] Microcontroleur : SafeAwake (bloc instancie)");
         }
 
-        // M4 : copie bibliotheque -> machine quand le joueur associe un script.
-        // Garde : BlockMapper.CurrentInstance == null pendant le chargement d'une
-        // machine (le DeSerialize des MapperTypes invoque ValueChanged hors UI —
-        // copier alors lirait le mauvais fichier, index de menu non encore repointe).
-        private void OnScriptMenuChanged(int index)
-        {
-            if (m_ScriptMenu == null || index < 0 || index >= m_ScriptMenu.Items.Count)
-            {
-                return;
-            }
-            string name = ResolveName(m_ScriptMenu.Items[index]);
-            if (BlockMapper.CurrentInstance == null)
-            {
-                // event hors UI (chargement d'une machine : DeSerialize des MapperTypes)
-                // — ne PAS copier : l'index de menu n'est pas encore repointe par nom.
-                Debug.Log("[ScriptingMod] menu script (hors UI, ignore) : " + name);
-                return;
-            }
-            string file = ReadScript(name);
-            if (file == null)
-            {
-                // entree orpheline selectionnee : on garde l'embarque tel quel.
-                ModConsole.Log("[ScriptingMod] menu script : \"" + name + "\" sans fichier — embarque conserve");
-                return;
-            }
-            // anti-ecrasement (D1-bis) : si l'ancien embarque etait orphelin (fichier
-            // absent), il allait etre perdu — sauvegarde automatique avant remplacement.
-            if (m_EmbeddedName != null && m_EmbeddedName != name
-                && m_EmbeddedSource != null && ReadScript(m_EmbeddedName) == null)
-            {
-                BackupOrphan(m_EmbeddedName, m_EmbeddedSource);
-            }
-            m_EmbeddedName = name;
-            m_EmbeddedSource = file;
-            ModConsole.Log("[ScriptingMod] script \"" + name + "\" associe (source copiee dans la machine)");
-        }
-
-        // --- M4 : persistance .bsg (D1) — la source voyage avec la machine ---
+        // --- M4 : persistance par nom (D1-ter) — la bibliotheque est la verite ---
 
         public override void OnLoad(XDataHolder data)
         {
-            if (data.HasKey(KEY_NAME))
+            if (!data.HasKey(KEY_NAME))
             {
-                m_EmbeddedName = data.ReadString(KEY_NAME);
-                m_EmbeddedSource = data.ReadString(KEY_SOURCE);
-                Debug.Log("[ScriptingMod] chargement : source embarquee \"" + m_EmbeddedName
-                    + "\" (" + (m_EmbeddedSource == null ? 0 : m_EmbeddedSource.Length) + " caracteres)");
-                // Repointer le menu par NOM (l'index sauvegarde peut etre decale par
-                // une bibliotheque qui a evolue entre-temps — bug latent M1 corrige).
-                ReSelectMenuFor(m_EmbeddedName);
+                return;     // machine pre-M4 : l'index vanilla suffit (comportement M1)
             }
-            else
+            string name = data.ReadString(KEY_NAME);
+            if (string.IsNullOrEmpty(name))
             {
-                Debug.Log("[ScriptingMod] chargement : pas de source embarquee (machine pre-M4 ou association non copiee)");
+                return;
             }
+            Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
+            // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
+            // bibliotheque qui a evolue — bug latent M1 corrige).
+            RepointMenu(name);
         }
 
         public override void OnSave(XDataHolder data)
         {
-            // Garde de robustesse (M4) : si aucune source n'a encore ete embarquee
-            // (association sans simulation, event UI manquant), la sauvegarde resout
-            // depuis le menu et copie le fichier — le .bsg ne doit JAMAIS partir sans
-            // sa source quand elle existe cote bibliotheque.
-            if (m_EmbeddedName == null || m_EmbeddedSource == null)
+            string name = MenuSelection;
+            if (name != null && name != "(aucun script)")
             {
-                string name = MenuSelection;
-                string file = (name == null) ? null : ReadScript(name);
-                if (file != null)
-                {
-                    m_EmbeddedName = name;
-                    m_EmbeddedSource = file;
-                    ModConsole.Log("[ScriptingMod] sauvegarde : source \"" + name + "\" copiee a la volee (aucune association prealable)");
-                }
-            }
-            if (m_EmbeddedName != null)
-            {
-                data.Write(KEY_NAME, m_EmbeddedName);
-                data.Write(KEY_SOURCE, m_EmbeddedSource ?? string.Empty);
-                Debug.Log("[ScriptingMod] sauvegarde : source embarquee \"" + m_EmbeddedName + "\" ecrite");
-            }
-            else
-            {
-                Debug.Log("[ScriptingMod] sauvegarde : aucune source embarquee (menu : \""
-                    + (MenuSelection ?? "?") + "\")");
+                data.Write(KEY_NAME, name);
             }
         }
 
         /// <summary>
-        /// Selectionne dans le menu l'entree correspondant au nom embarque (l'ajoute
-        /// marquee « * » si le fichier est absent — etat orphelin visible, D1-bis).
-        /// SetValue n'invoque PAS ValueChanged : pas de copie recursive.
+        /// Selectionne dans le menu l'entree correspondant au nom (l'ajoute marquee
+        /// « * n'existe plus » si le fichier est absent de la bibliotheque).
+        /// SetValue n'invoque pas ValueChanged : pas d'evenement parasite.
         /// </summary>
-        private void ReSelectMenuFor(string name)
+        private void RepointMenu(string name)
         {
             if (m_ScriptMenu == null || name == null)
             {
                 return;
             }
             List<string> items = m_ScriptMenu.Items;
-            string target = (ReadScript(name) != null) ? name : ORPHAN_MARK + name;
-
             int idx = -1;
             for (int i = 0; i < items.Count; i++)
             {
@@ -185,61 +115,47 @@ namespace ScriptingMod
             }
             if (idx < 0)
             {
-                items.Add(target);
+                items.Add(MISSING_MARK + name);
                 idx = items.Count - 1;
             }
             else
             {
-                items[idx] = target;    // rafraichit le marqueur orphelin/synchronise
+                // marqueur dynamique : marque si le fichier est desormais absent
+                items[idx] = (ReadScript(name) != null) ? name : MISSING_MARK + name;
             }
             m_ScriptMenu.SetValue(idx);
         }
 
-        /// <summary>Sauvegarde une source orpheline en <nom>.recup[.lua — jamais d'ecrasement silencieux.</summary>
-        private static void BackupOrphan(string name, string source)
+        /// <summary>
+        /// Rafraichit le menu depuis la bibliotheque (nouveaux scripts visibles sans
+        /// relancer le niveau) en conservant la selection courante par nom.
+        /// Appele a l'ouverture du mapper (onMapperOpen, cf. ScriptingModEntryPoint).
+        /// </summary>
+        internal void RefreshMenu()
         {
-            try
+            if (m_ScriptMenu == null)
             {
-                string path = SCRIPTS_DIR + "/" + name + ".recup.lua";
-                int n = 2;
-                while (Modding.ModIO.ExistsFile(path, data: true) && n < 100)
-                {
-                    path = SCRIPTS_DIR + "/" + name + ".recup" + n + ".lua";
-                    n++;
-                }
-                Modding.ModIO.WriteAllText(path, source, data: true);
-                ModConsole.Log("[ScriptingMod] ancienne source orpheline sauvegardee : "
-                    + System.IO.Path.GetFileName(path) + " (elle allait etre ecrasee)");
+                return;
             }
-            catch (System.Exception ex)
+            string current = MenuSelection;
+            m_ScriptMenu.Items = GetScriptList();
+            if (!string.IsNullOrEmpty(current) && current != "(aucun script)")
             {
-                ModConsole.Log("[ScriptingMod] sauvegarde orphelin impossible : " + ex.Message);
+                RepointMenu(current);
             }
         }
 
-        /// <summary>Nom reel d'une entree de menu (retire le marqueur orphelin « * »).</summary>
+        /// <summary>Nom reel d'une entree de menu (retire le marqueur « n'existe plus »).</summary>
         internal static string ResolveName(string item)
         {
             if (string.IsNullOrEmpty(item))
             {
                 return null;
             }
-            return item.StartsWith(ORPHAN_MARK) ? item.Substring(ORPHAN_MARK.Length) : item;
+            return item.StartsWith(MISSING_MARK) ? item.Substring(MISSING_MARK.Length) : item;
         }
 
-        // --- M4 : accesseurs pour les commandes console (script show/reload/export) ---
-
-        internal string EmbeddedName
-        {
-            get { return m_EmbeddedName; }
-        }
-
-        internal string EmbeddedSource
-        {
-            get { return m_EmbeddedSource; }
-        }
-
-        /// <summary>Nom selectionne au menu (sans marqueur) — cible de reload/export.</summary>
+        /// <summary>Nom selectionne au menu (sans marqueur) — cible de reload/show.</summary>
         internal string MenuSelection
         {
             get { return m_ScriptMenu == null ? null : ResolveName(m_ScriptMenu.Selection); }
@@ -251,32 +167,19 @@ namespace ScriptingMod
             get { return m_Lua != null; }
         }
 
-        /// <summary>Etat de synchronisation embarque <-> bibliotheque (script show).</summary>
-        internal string SyncState()
+        /// <summary>Le script selectionne existe-t-il dans la bibliotheque ?</summary>
+        internal bool HasScriptFile
         {
-            if (m_EmbeddedSource == null || m_EmbeddedName == null)
-            {
-                return "sans source embarquee (lecture bibliotheque)";
-            }
-            string file = ReadScript(m_EmbeddedName);
-            if (file == null)
-            {
-                return "ORPHELIN (fichier absent — la machine vit avec sa source embarquee)";
-            }
-            if (file == m_EmbeddedSource)
-            {
-                return "synchronise";
-            }
-            return "DIFFERENT de la bibliotheque (sim = fichier ; 'script export' pour recuperer l'embarque)";
+            get { return ReadScript(MenuSelection) != null; }
         }
 
         /// <summary>
-        /// M4 : script reload — resynchronise fichier -> embarque (D1-bis) et remonte
-        /// le runtime a chaud si ce controleur etait en simulation.
+        /// M4 : script reload — relit le fichier et remonte le runtime a chaud si ce
+        /// controleur etait en simulation.
         /// </summary>
         internal bool ReloadFromLibrary()
         {
-            string name = m_EmbeddedName ?? MenuSelection;
+            string name = MenuSelection;
             if (name == null || name == "(aucun script)")
             {
                 ModConsole.Log("[ScriptingMod] reload : aucun script associe");
@@ -286,7 +189,7 @@ namespace ScriptingMod
             if (file == null)
             {
                 ModConsole.Log("[ScriptingMod] reload : fichier introuvable : " + name
-                    + (m_EmbeddedSource != null ? " (source embarquee conservee)" : string.Empty));
+                    + " (renomme/supprime ? — 'script list' pour la bibliotheque)");
                 return false;
             }
 
@@ -295,25 +198,14 @@ namespace ScriptingMod
             {
                 OnSimulateStop();       // on_sim_stop + relache des canaux + demontage
             }
-            m_EmbeddedName = name;
-            m_EmbeddedSource = file;
-            ReSelectMenuFor(name);
+            RepointMenu(name);          // marqueur « n'existe plus » retire si revenu
             if (remount)
             {
                 OnSimulateStart();      // remontage avec la source fraiche
             }
-            ModConsole.Log("[ScriptingMod] " + name + " : resynchronise depuis la bibliotheque"
+            ModConsole.Log("[ScriptingMod] " + name + " : recharge"
                 + (remount ? " et re-execute" : " (applique au prochain debut de sim)"));
             return true;
-        }
-
-        /// <summary>Rafraichit le marqueur du menu (apres export : orphelin -> synchronise).</summary>
-        internal void RefreshMenuMarker()
-        {
-            if (m_EmbeddedName != null)
-            {
-                ReSelectMenuFor(m_EmbeddedName);
-            }
         }
 
         public override void OnSimulateStart()
@@ -329,36 +221,16 @@ namespace ScriptingMod
                 return;
             }
 
-            // M4 : resolution de la source (D1-bis) — le FICHIER gagne s'il existe
-            // (atelier, fluidite edition), l'EMBARQUE sinon (machine autonome).
+            // M4 : la bibliotheque est l'unique source (D1-ter) — resolution par nom.
             string name = MenuSelection;
             string source = ReadScript(name);
-
-            if (source != null)
-            {
-                if (m_EmbeddedName != name || m_EmbeddedSource != source)
-                {
-                    m_EmbeddedName = name;
-                    m_EmbeddedSource = source;      // resynchronise fichier -> machine
-                }
-            }
-            else if (m_EmbeddedName == name && m_EmbeddedSource != null)
-            {
-                source = m_EmbeddedSource;
-                ModConsole.Log("[ScriptingMod] " + name + " : fichier absent, source embarquee (machine autonome)");
-            }
-            else if (m_EmbeddedName != null && m_EmbeddedSource != null)
-            {
-                // menu decale par une bibliotheque ayant evolue : l'embarque est la verite
-                name = m_EmbeddedName;
-                source = m_EmbeddedSource;
-                ModConsole.Log("[ScriptingMod] " + name + " : menu decale, source embarquee utilisee");
-            }
 
             m_ScriptName = name;
             if (source == null)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroleur : script introuvable : " + m_ScriptName);
+                ModConsole.Log("[ScriptingMod] Microcontroleur : script \""
+                    + (name ?? "?") + "\" introuvable dans la bibliotheque (renomme/supprime ?)"
+                    + " — ce controleur ne fait rien ce run. 'script list' pour voir la bibliotheque.");
                 return;
             }
 

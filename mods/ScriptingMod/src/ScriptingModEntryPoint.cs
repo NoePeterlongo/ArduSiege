@@ -114,7 +114,7 @@ namespace ScriptingMod
                 WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
                 WriteDemoIfOutdated("actionneurs.lua", 2, ACTIONNEURS_LUA);
                 WriteDemoIfOutdated("noms.lua", 3, NOMS_LUA);
-                WriteDemoIfOutdated("pilotage.lua", 1, PILOTAGE_LUA);
+                WriteDemoIfOutdated("pilotage.lua", 2, PILOTAGE_LUA);
             }
             catch (Exception ex)
             {
@@ -307,9 +307,9 @@ namespace ScriptingMod
             "    print(\"refs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo actionnement direct : les actions portent le nom vu dans l'UI (SMDEMO v1)
+        // Demo actionnement direct : les actions portent le nom vu dans l'UI (SMDEMO v2)
         private const string PILOTAGE_LUA =
-            "-- pilotage.lua (SMDEMO v1) : piloter un bloc par ses ACTIONS (nom de l'UI)\n" +
+            "-- pilotage.lua (SMDEMO v2) : piloter un bloc par ses ACTIONS (nom de l'UI)\n" +
             "-- PREPARATION : aucune ! placez un moteur (Cog) — pas de liaison mapper.\n" +
             "-- Les actions d'un bloc sont visibles dans son mapper (touches) :\n" +
             "-- moteur : forward/backward ; bloc de vol : spin ; spring : contract...\n" +

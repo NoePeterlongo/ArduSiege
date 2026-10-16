@@ -55,6 +55,20 @@ Aucune préparation : un moteur (Cog), le script `pilotage`. Idiome état comple
 modulée toutes les 2 s, `b.actions` listé au démarrage. Validée par le harnais
 MoonSharp (`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
 
+## Bug #1 (corrigé) : démo re-seedée sans bump de version
+
+- **Symptôme joueur** : `pilotage:(16,4-43): cannot access field keys of userdata` —
+  le fichier local était la PREMIÈRE itération (`moteur.keys`, sucre spin/reverse),
+  seedée avant le redesign en actions-dynamiques.
+- **Cause** : le contenu de la démo a changé sans incrémenter le tag SMDEMO (resté
+  v1) → `WriteDemoIfOutdated` n'a jamais écrasé l'exemplaire local. Vieux Lua +
+  nouvelle DLL = API désynchronisée.
+- **Fix** : bump SMDEMO v2 (le re-seed remplace le fichier local).
+- **Leçon durable** : TOUT changement de contenu d'une démo embarquée DOIT
+  incrémenter son tag SMDEMO dans le même commit — c'est la seule protection du
+  joueur contre la désynchronisation. (Deuxième occurrence du schéma
+  « démo/mod désynchronisés », après la ligne non commentée du M3.)
+
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `pilotage.lua installe (SMDEMO v1)` ;

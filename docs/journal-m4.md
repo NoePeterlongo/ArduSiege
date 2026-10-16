@@ -4,7 +4,16 @@
 > `.bsg` (machine autonome, partageable), automate de synchronisation machine ↔
 > bibliothèque à trois états, commandes console `script`.
 
-## État : EN COURS (test joueur attendu)
+## État : TERMINÉ (M4 validé en jeu — 2026-10-15)
+
+Parcours complet validé par le joueur (modèle D1-ter) : nouveau script visible au
+mapper sans relancer le niveau ; machine sauvegardée/rechargée avec bibliothèque
+évolutive → le bon script (re-point par nom) ; `script reload` re-exécute à chaud ;
+script renommé → marqueur `*` au mapper, message clair en sim, contrôleur inerte,
+retour à la normale au retour du fichier ; `script show/list/folder` cohérents.
+Deux jalons de debug nécessaires (GetLocalPlayer null en solo ; event UI
+d'association peu fiable → supprimé par le pivot D1-ter). Budget watchdog : inchangé
+(1M instr/tick — recalibrage reporté à M5).
 
 ---
 
@@ -126,4 +135,9 @@ pas de System.Reflection hors metadata.
 6. remettre le fichier sous le même nom → mapper sans marqueur, sim : le script
    tourne à nouveau.
 
-*(à compléter : résultats)*
+**Résultats (2026-10-15) : TOUT PASSE.** Notamment : le rafraîchissement du menu à
+l'ouverture du mapper (onMapperOpen + Rebuild) ne provoque aucun scintillement ni
+souci d'affichage — plan B (rebuild différé) inutile. Leçons durables M4 :
+(1) `Modding.Common.Player` est MP-first — en solo, `Machine.Active()` ;
+(2) un modèle à source unique (bibliothèque) bat un modèle à synchronisation dès que
+la synchronisation dépend d'événements UI qu'on ne contrôle pas.

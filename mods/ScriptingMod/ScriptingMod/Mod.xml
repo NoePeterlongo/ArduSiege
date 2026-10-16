@@ -1,8 +1,8 @@
 ﻿<Mod>
     <Name>ScriptingMod</Name>
     <Author>noe</Author>
-    <Version>0.3.0</Version>
-    <Description>Moteur de scripting Lua embarque + bloc Microcontroller : capteurs, actionneurs, boucles de controle. M1.</Description>
+    <Version>0.4.0</Version>
+    <Description>Moteur de scripting Lua embarque + bloc Microcontroller : capteurs, actionneurs, bibliotheque de scripts (persistance par nom, hot reload). M4.</Description>
     <MultiplayerCompatible>false</MultiplayerCompatible>
     <Debug>true</Debug>
     <Assemblies>

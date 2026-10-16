@@ -79,16 +79,23 @@ namespace ScriptingMod
         // copier alors lirait le mauvais fichier, index de menu non encore repointe).
         private void OnScriptMenuChanged(int index)
         {
-            if (BlockMapper.CurrentInstance == null || m_ScriptMenu == null
-                || index < 0 || index >= m_ScriptMenu.Items.Count)
+            if (m_ScriptMenu == null || index < 0 || index >= m_ScriptMenu.Items.Count)
             {
                 return;
             }
             string name = ResolveName(m_ScriptMenu.Items[index]);
+            if (BlockMapper.CurrentInstance == null)
+            {
+                // event hors UI (chargement d'une machine : DeSerialize des MapperTypes)
+                // — ne PAS copier : l'index de menu n'est pas encore repointe par nom.
+                Debug.Log("[ScriptingMod] menu script (hors UI, ignore) : " + name);
+                return;
+            }
             string file = ReadScript(name);
             if (file == null)
             {
                 // entree orpheline selectionnee : on garde l'embarque tel quel.
+                ModConsole.Log("[ScriptingMod] menu script : \"" + name + "\" sans fichier — embarque conserve");
                 return;
             }
             // anti-ecrasement (D1-bis) : si l'ancien embarque etait orphelin (fichier
@@ -111,18 +118,45 @@ namespace ScriptingMod
             {
                 m_EmbeddedName = data.ReadString(KEY_NAME);
                 m_EmbeddedSource = data.ReadString(KEY_SOURCE);
+                Debug.Log("[ScriptingMod] chargement : source embarquee \"" + m_EmbeddedName
+                    + "\" (" + (m_EmbeddedSource == null ? 0 : m_EmbeddedSource.Length) + " caracteres)");
                 // Repointer le menu par NOM (l'index sauvegarde peut etre decale par
                 // une bibliotheque qui a evolue entre-temps — bug latent M1 corrige).
                 ReSelectMenuFor(m_EmbeddedName);
+            }
+            else
+            {
+                Debug.Log("[ScriptingMod] chargement : pas de source embarquee (machine pre-M4 ou association non copiee)");
             }
         }
 
         public override void OnSave(XDataHolder data)
         {
+            // Garde de robustesse (M4) : si aucune source n'a encore ete embarquee
+            // (association sans simulation, event UI manquant), la sauvegarde resout
+            // depuis le menu et copie le fichier — le .bsg ne doit JAMAIS partir sans
+            // sa source quand elle existe cote bibliotheque.
+            if (m_EmbeddedName == null || m_EmbeddedSource == null)
+            {
+                string name = MenuSelection;
+                string file = (name == null) ? null : ReadScript(name);
+                if (file != null)
+                {
+                    m_EmbeddedName = name;
+                    m_EmbeddedSource = file;
+                    ModConsole.Log("[ScriptingMod] sauvegarde : source \"" + name + "\" copiee a la volee (aucune association prealable)");
+                }
+            }
             if (m_EmbeddedName != null)
             {
                 data.Write(KEY_NAME, m_EmbeddedName);
                 data.Write(KEY_SOURCE, m_EmbeddedSource ?? string.Empty);
+                Debug.Log("[ScriptingMod] sauvegarde : source embarquee \"" + m_EmbeddedName + "\" ecrite");
+            }
+            else
+            {
+                Debug.Log("[ScriptingMod] sauvegarde : aucune source embarquee (menu : \""
+                    + (MenuSelection ?? "?") + "\")");
             }
         }
 

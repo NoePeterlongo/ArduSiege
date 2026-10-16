@@ -87,9 +87,14 @@ the block; use world/machine vectors for navigation and stabilization.
 
 ### Machine frame
 
-`machine.up`, `machine.forward`, `machine.right` are the axes of the machine
-root — useful for control loops ("keep level" = `machine.up.y` close to 1).
-`machine.rotation` gives the machine's Euler angles.
+`machine.up`, `machine.forward`, `machine.right` are the machine's own axes (in
+world coordinates), tracked live during the simulation from the machine's
+reference block — useful for control loops ("keep level" = `machine.up.y`
+close to 1). `machine.rotation` gives the corresponding Euler angles,
+`machine.position` the reference block's center, `machine.velocity` the
+machine's velocity. These fall back to the build-machine frame while building.
+Note: `machine.forward` follows the placement convention too — the direction
+the machine was built in, not a fixed world axis.
 
 ---
 
@@ -134,9 +139,9 @@ local group = machine:refs("pousser")
 local pos = self.position
 ```
 
-Machine data: `machine.position`, `machine.rotation`, `machine.up`,
-`machine.forward`, `machine.right`, `machine.mass`, `machine.health`,
-`machine.block_count`, `machine.size`.
+Machine data: `machine.position`, `machine.velocity`, `machine.rotation`,
+`machine.up`, `machine.forward`, `machine.right`, `machine.mass`,
+`machine.health`, `machine.block_count`, `machine.size`.
 
 ---
 

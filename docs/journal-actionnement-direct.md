@@ -69,6 +69,23 @@ MoonSharp (`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
   joueur contre la désynchronisation. (Deuxième occurrence du schéma
   « démo/mod désynchronisés », après la ligne non commentée du M3.)
 
+## Bug #2 (corrigé) : `machine.forward` figé pendant la sim
+
+- **Symptôme joueur** : `machine.forward.z` toujours 1, machine tournante ou non.
+- **Cause** (decomp) : `Machine.Position`/`Machine.Rotation` lisent
+  `buildingMachine` — la racine de CONSTRUCTION, immobile pendant la simulation.
+  Les axes machine dérivés de `Machine.Rotation` étaient donc figés.
+- **Source live du jeu** : `Machine.RefUp`/`RefForward`/`RefCenter`/`RefVel` —
+  propriétés publiques calculées depuis le **bloc de référence**
+  (`refBlockTransform`, capturé au début de sim, bouge avec la machine).
+- **Fix** (`LuaMachineApi`) : `machine.up/forward/right/rotation/position` (et
+  nouveau `machine.velocity`) suivent les `Ref*` en simulation, avec repli sur le
+  repère de construction en mode build (les `Ref*` rendent zéro hors sim).
+  Sémantique : `machine.position` = centre du bloc de référence en sim.
+- **Leçon durable** : toute donnée "machine" lue depuis `Modding.Blocks.PlayerMachine`
+  doit être validée LIVE vs BUILD — les propriétés de `Machine` peuvent n'être
+  que construction-side (buildingMachine) ; les `Ref*` sont la source sim.
+
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `pilotage.lua installe (SMDEMO v1)` ;

@@ -450,17 +450,19 @@ namespace ScriptingMod
             switch (index.String)
             {
                 case "position":
-                    return LuaApi.Vec3(script, m_Machine.Position);
+                    return LuaApi.Vec3(script, MachinePosition());
                 case "rotation":
-                    return LuaApi.Vec3(script, m_Machine.Rotation.eulerAngles);
-                // axes du repere MACHINE (racine) — utiles pour les boucles de
-                // controle (rester a plat : machine.up.y proche de 1)
+                    return LuaApi.Vec3(script, MachineRotationQuat().eulerAngles);
+                // axes du repere MACHINE (bloc de reference, LIVE pendant la sim —
+                // Machine.Rotation lit buildingMachine, immobile en sim : fige).
                 case "up":
-                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.up);
+                    return LuaApi.Vec3(script, MachineUp());
                 case "forward":
-                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.forward);
+                    return LuaApi.Vec3(script, MachineForward());
                 case "right":
-                    return LuaApi.Vec3(script, m_Machine.Rotation * UnityEngine.Vector3.right);
+                    return LuaApi.Vec3(script, MachineRight());
+                case "velocity":
+                    return LuaApi.Vec3(script, m_Machine.InternalObject.RefVel);
                 case "mass":
                     return DynValue.NewNumber(m_Machine.Mass);
                 case "health":
@@ -572,6 +574,52 @@ namespace ScriptingMod
             }
 
             return result;
+        }
+
+        // --- repere machine LIVE (RefBlock : bouge avec la machine en sim) ---
+        // Machine.Position/Rotation lisent buildingMachine (immobile pendant la sim).
+        // La source live du jeu : Machine.RefUp/RefForward/RefCenter/RefVel, calcules
+        // depuis le bloc de reference. Hors sim (construction), Ref* rend zero ->
+        // repli sur le repere de construction (vivant en mode construction).
+
+        private UnityEngine.Vector3 MachineUp()
+        {
+            UnityEngine.Vector3 v = m_Machine.InternalObject.RefUp;
+            return (v.sqrMagnitude < 1e-06f)
+                ? m_Machine.Rotation * UnityEngine.Vector3.up
+                : v;
+        }
+
+        private UnityEngine.Vector3 MachineForward()
+        {
+            UnityEngine.Vector3 v = m_Machine.InternalObject.RefForward;
+            return (v.sqrMagnitude < 1e-06f)
+                ? m_Machine.Rotation * UnityEngine.Vector3.forward
+                : v;
+        }
+
+        private UnityEngine.Vector3 MachineRight()
+        {
+            return UnityEngine.Vector3.Cross(MachineUp(), MachineForward()).normalized;
+        }
+
+        private UnityEngine.Vector3 MachinePosition()
+        {
+            // RefCenter = centre du bloc de reference (live en sim) ; en construction,
+            // Machine.Position (racine construction) est vivante.
+            return (Modding.Game.IsSimulating)
+                ? m_Machine.InternalObject.RefCenter
+                : m_Machine.Position;
+        }
+
+        private UnityEngine.Quaternion MachineRotationQuat()
+        {
+            UnityEngine.Vector3 fwd = m_Machine.InternalObject.RefForward;
+            if (fwd.sqrMagnitude < 1e-06f)
+            {
+                return m_Machine.Rotation;
+            }
+            return UnityEngine.Quaternion.LookRotation(fwd, MachineUp());
         }
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)

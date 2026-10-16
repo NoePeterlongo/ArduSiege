@@ -37,6 +37,20 @@
 - Validation : `PARSE+RUN OK` via le harnais MoonSharp Docker (procédure M3) ;
   build OK ; scan propre (`MemberInfo::` 0, pas de réflexion hors metadata).
 
+## Bug #1 (corrigé) : `named` exposé comme propriété au lieu d'une méthode
+
+- **Symptôme joueur** : `noms:(8,4-46): attempt to call a table value` —
+  `machine:named()` appelait une TABLE.
+- **Cause** : `named` retournait la table directement (propriété) alors que la
+  convention de l'API est le style méthode (`machine:blocks()`) ; avec les parenthèses,
+  Lua appelait la table.
+- **Fix** : `named` est désormais un `CallbackFunction` comme `blocks` —
+  `machine:named()` et `machine.named()` marchent tous deux.
+- **Leçon** : le harnais de parse (M3) ne peut pas attraper ce type d'erreur — il
+  exécute le top-level, pas les callbacks (`on_sim_start` n'y tourne jamais). Les
+  erreurs d'usage de l'API ne se voient qu'en jeu ; garder les démos comme
+  *smoke-tests* de l'API à chaque évolution.
+
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `noms.lua installe (SMDEMO v1)` ;

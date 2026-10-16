@@ -287,7 +287,8 @@ namespace ScriptingMod
                 case "block":
                     return DynValue.NewCallback((ctx, args) => BlockByName(script, args), "block");
                 case "named":
-                    return NamedTable(script);
+                    // methode (comme blocks()) : machine:named() -> table nom -> bloc
+                    return DynValue.NewCallback((ctx, args) => NamedTable(script), "named");
                 default:
                     return null;
             }

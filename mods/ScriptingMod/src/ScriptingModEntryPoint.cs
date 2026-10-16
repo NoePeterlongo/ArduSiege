@@ -113,6 +113,7 @@ namespace ScriptingMod
                 WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
                 WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
                 WriteDemoIfOutdated("actionneurs.lua", 2, ACTIONNEURS_LUA);
+                WriteDemoIfOutdated("noms.lua", 3, NOMS_LUA);
             }
             catch (Exception ex)
             {
@@ -265,6 +266,44 @@ namespace ScriptingMod
             "\n" +
             "function on_sim_stop()\n" +
             "    print(\"actionneurs : fin apres \" .. ticks .. \" ticks\")\n" +
+            "end\n";
+
+        // Demo refs : adressage des blocs par variable vanilla (SMDEMO v3)
+        private const string NOMS_LUA =
+            "-- noms.lua (SMDEMO v3) : adresser les blocs par variable vanilla (refs)\n" +
+            "-- PREPARATION : liez la touche d'un bloc au MESSAGE \"pousser\" dans son\n" +
+            "-- mapper (champ texte/variable, Advanced Building) ; plusieurs tags\n" +
+            "-- possibles (a;b) : controle ET identification sur la meme touche.\n" +
+            "local ticks = 0\n" +
+            "local moteur = nil\n" +
+            "\n" +
+            "function on_sim_start()\n" +
+            "    local pousseurs = machine:refs(\"pousser\")\n" +
+            "    print(#pousseurs .. \" bloc(s) ecoutent la variable 'pousser'\")\n" +
+            "    for i, b in ipairs(pousseurs) do\n" +
+            "        print(\"  refs : \" .. b.type)\n" +
+            "    end\n" +
+            "    if #pousseurs > 0 then\n" +
+            "        moteur = pousseurs[1]\n" +
+            "        for k, d in pairs(moteur.sliders) do\n" +
+            "            print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "        end\n" +
+            "    end\n" +
+            "end\n" +
+            "\n" +
+            "function on_tick()\n" +
+            "    emulate(\"pousser\", input:is_held(\"P\"))\n" +
+            "    ticks = ticks + 1\n" +
+            "    if moteur == nil or ticks % 100 ~= 0 then return end\n" +
+            "    -- module la vitesse du bloc ecouteur toutes les 2 s (demo set_slider)\n" +
+            "    local v = moteur:slider(\"speed\")\n" +
+            "    local cible = (v < 1.5) and 2.5 or 0.5\n" +
+            "    moteur:set_slider(\"speed\", cible)\n" +
+            "    print(string.format(\"  [refs] slider speed : %.1f -> %.1f\", v, cible))\n" +
+            "end\n" +
+            "\n" +
+            "function on_sim_stop()\n" +
+            "    print(\"refs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
         // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---

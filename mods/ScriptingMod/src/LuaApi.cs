@@ -222,7 +222,7 @@ namespace ScriptingMod
             return DynValue.Nil;
         }
 
-        private static string FirstStringArg(CallbackArguments args)
+        internal static string FirstStringArg(CallbackArguments args)
         {
             for (int i = 0; i < args.Count; i++)
             {
@@ -283,9 +283,68 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, m_Machine.Size);
                 case "blocks":
                     return DynValue.NewCallback((ctx, args) => BuildBlocks(script, args), "blocks");
+                // --- Refs : blocs qui ecoutent une variable/message vanilla (liaisons mapper) ---
+                case "refs":
+                    return DynValue.NewCallback((ctx, args) => RefsTable(script, args), "refs");
                 default:
                     return null;
             }
+        }
+
+        /// <summary>
+        /// machine:refs("canal") -> table (indexee) des blocs dont une touche ecoute
+        /// le MESSAGE vanilla "canal" (liaisons « variables a la place des touches »).
+        /// Persistance native (.bsg), survit au deplacement, adressage de groupe.
+        /// </summary>
+        private DynValue RefsTable(Script script, CallbackArguments args)
+        {
+            string channel = LuaBlockApi.FirstStringArg(args);
+            if (string.IsNullOrEmpty(channel))
+            {
+                throw new ScriptRuntimeException("machine:refs(canal) : canal requis, ex. machine:refs(\"rotor\")"
+                    + " — la liaison se fait dans le mapper du bloc (variable/message, Advanced Building)");
+            }
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? m_Machine.SimulationBlocks : m_Machine.BuildingBlocks;
+
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            int n = 0;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb == null || bb.MapperTypes == null)
+                {
+                    continue;
+                }
+                bool found = false;
+                foreach (MapperType mt in bb.MapperTypes)
+                {
+                    MKey key = mt as MKey;
+                    if (key == null || !key.useMessage || key.message == null)
+                    {
+                        continue;
+                    }
+                    foreach (string message in key.message)
+                    {
+                        if (message == channel)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                    {
+                        break;
+                    }
+                }
+                if (found)
+                {
+                    n++;
+                    table.Set(n, UserData.Create(new LuaBlockApi(block)));
+                }
+            }
+            return result;
         }
 
         private DynValue BuildBlocks(Script script, CallbackArguments args)

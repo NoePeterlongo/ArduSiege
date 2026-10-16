@@ -3,16 +3,12 @@
 //   M1 : mapper vanilla (menu script + toggle « actif »), runtime Lua par simulation,
 //        on_tick a 50 Hz, etat frais a chaque run, watchdog borne chaque execution.
 //   M2 : API capteurs (self/machine/input).  M3 : actionneurs (emulate/set_slider).
-//   M4 : persistance par NOM uniquement (decision joueur, D1-ter — cf. journal M4) :
-//     - la machine stocke le NOM du script (cle sm-script-name) — la BIBLIOTHEQUE
-//       est l'unique source de verite (pas de source embarquee) ;
-//     - le menu est repointe par nom au chargement (corrige l'index decale) et
-//       rafraichi a l'ouverture du mapper (nouveaux scripts visibles sans relancer
-//       le niveau) ;
-//     - un script absent de la bibliotheque est marque « * » au mapper et le
-//       controleur le signale clairement (il ne fait rien ce run).
+//   M4 : persistance par nom (decision joueur D1-ter) — la bibliotheque est la verite ;
+//        menu repointe par nom, rafraichi a l'ouverture du mapper.
+//   Refs : machine:refs(canal) expose les blocs qui ecoutent une variable vanilla
+//        (liaisons « variables a la place des touches » — persistance native .bsg).
 //
-// Console : Ctrl+Shift+K. Journaux : docs/journal-m1..m4.md.
+// Console : Ctrl+Shift+K. Journaux : docs/journal-m1..m4, nommage-blocs.
 
 using System.Collections.Generic;
 using Modding;
@@ -68,19 +64,17 @@ namespace ScriptingMod
 
         public override void OnLoad(XDataHolder data)
         {
-            if (!data.HasKey(KEY_NAME))
+            if (data.HasKey(KEY_NAME))
             {
-                return;     // machine pre-M4 : l'index vanilla suffit (comportement M1)
+                string name = data.ReadString(KEY_NAME);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
+                    // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
+                    // bibliotheque qui a evolue — bug latent M1 corrige).
+                    RepointMenu(name);
+                }
             }
-            string name = data.ReadString(KEY_NAME);
-            if (string.IsNullOrEmpty(name))
-            {
-                return;
-            }
-            Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
-            // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
-            // bibliotheque qui a evolue — bug latent M1 corrige).
-            RepointMenu(name);
         }
 
         public override void OnSave(XDataHolder data)

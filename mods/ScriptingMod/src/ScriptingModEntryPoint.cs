@@ -307,12 +307,13 @@ namespace ScriptingMod
             "    print(\"refs : fin apres \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo actionnement direct : piloter sans AUCUNE liaison vanilla (SMDEMO v1)
+        // Demo actionnement direct : les actions portent le nom vu dans l'UI (SMDEMO v1)
         private const string PILOTAGE_LUA =
-            "-- pilotage.lua (SMDEMO v1) : piloter un moteur SANS variable vanilla\n" +
+            "-- pilotage.lua (SMDEMO v1) : piloter un bloc par ses ACTIONS (nom de l'UI)\n" +
             "-- PREPARATION : aucune ! placez un moteur (Cog) — pas de liaison mapper.\n" +
-            "-- P : marche avant, O : marche arriere, S : arret ; vitesse modulee toutes\n" +
-            "-- les 2 s. (b:spin/b:reverse relachent l'inverse automatiquement.)\n" +
+            "-- Les actions d'un bloc sont visibles dans son mapper (touches) :\n" +
+            "-- moteur : forward/backward ; bloc de vol : spin ; spring : contract...\n" +
+            "-- Idiome : ETAT COMPLET a chaque tick — b:forward(P tenu), b:backward(O tenu).\n" +
             "local moteur = nil\n" +
             "local ticks = 0\n" +
             "\n" +
@@ -324,21 +325,16 @@ namespace ScriptingMod
             "    end\n" +
             "    moteur = moteurs[1]\n" +
             "    print(\"moteur pilote : \" .. moteur.type .. \" — P avant, O arriere\")\n" +
-            "    for k, libelle in pairs(moteur.keys) do\n" +
-            "        print(\"  touche : \" .. k .. \" (\" .. libelle .. \")\")\n" +
+            "    for nom, libelle in pairs(moteur.actions) do\n" +
+            "        print(\"  action : \" .. nom .. \" (\" .. libelle .. \")\")\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
             "    if moteur == nil then return end\n" +
             "    ticks = ticks + 1\n" +
-            "    if input:is_held(\"P\") then\n" +
-            "        moteur:spin(true)\n" +
-            "    elseif input:is_held(\"O\") then\n" +
-            "        moteur:reverse(true)\n" +
-            "    else\n" +
-            "        moteur:spin(false)\n" +
-            "    end\n" +
+            "    moteur:forward(input:is_held(\"P\"))\n" +
+            "    moteur:backward(input:is_held(\"O\"))\n" +
             "    if ticks % 100 == 0 then\n" +
             "        local v = moteur:slider(\"speed\")\n" +
             "        moteur:set_slider(\"speed\", (v < 1.5) and 2.5 or 0.5)\n" +

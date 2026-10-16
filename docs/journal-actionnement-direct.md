@@ -19,20 +19,25 @@
 - le moteur s'inscrit au tick via `Prefab.RegisterEmulationUpdate` (vanilla —
   l.418), comme pour toute émulation vanilla.
 
-## API
+## API (revue joueur : « basique et facile » — les actions portent le nom de l'UI)
 
-- `b:keys` → table clé → libellé (les touches du mapper du bloc, ex. `forward`,
-  `backward` pour un Cog) ;
-- `b:key("forward", true)` → générique : pilote la touche par son nom de mapper ;
-- sucre : `b:spin(etat)` → touche `forward` (relâche `backward` automatiquement),
-  `b:reverse(etat)` → touche `backward` (relâche `forward`) ;
-- **NB nommage** : `b.forward`/`b.up`/`b.right` restent les AXES du bloc (M2) —
-  d'où `spin`/`reverse` plutôt que `forward`/`backward` pour le sucre ;
+- **`b:<nom_action>(etat)`** — dispatch dynamique : toute MKey du bloc est appelable
+  par le nom que le joueur voit dans le mapper — clé (`forward`, `backward`, `spin`,
+  `contract`, `wind`, `unwind`...) ou libellé UI, insensible à la casse. Aucun sucre
+  codé en dur : le bloc définit ses actions, l'API les expose toutes ;
+- `b.actions` → table nom appelable → libellé (découverte, comme `b.sliders`) ;
+- `b:action(nom, etat)` → accès générique (noms calculés) ;
+- **axes duaux** : `b.forward`/`b.up`/`b.right` restent les vecteurs (M2) ET sont
+  appelables — `b:forward(true)` pilote l'action via une metatable `__call` sur la
+  table du vecteur (support MoonSharp vérifié au source, Processor l.512) ;
+- **pas de relâchement magique de l'opposé** : l'idiome recommandé est l'état complet
+  à chaque tick (`b:forward(input:is_held("P"))` + `b:backward(input:is_held("O"))`),
+  comme `emulate`. Si les deux sont tenus, le moteur priorise l'avant (CheckKeys,
+  vérifié au decomp) ;
 - idempotence (leçon M3) : registre par contrôleur (`BlockKeyActuator`), transitions
-  uniquement, baseline « absent = relâché » — jamais de faux `false` initial ;
-- relâchement global à l'arrêt de sim du contrôleur (`OnSimulateStop`) — symétrie du
-  compteur, comme `emulate` ;
-- hors contexte contrôleur (console POC) : erreur explicite.
+  uniquement, baseline « absent = relâché » ;
+- relâchement global à l'arrêt de sim du contrôleur — symétrie du compteur ;
+- action inconnue → erreur listant les actions du bloc.
 
 ## Limites documentées
 
@@ -45,16 +50,19 @@
 
 ## Démo `pilotage.lua` (SMDEMO v1)
 
-Aucune préparation : un moteur (Cog), le script `pilotage`, P pour avant, O pour
-arrière, vitesse modulée toutes les 2 s. Validée par le harnais MoonSharp
-(`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
+Aucune préparation : un moteur (Cog), le script `pilotage`. Idiome état complet :
+`moteur:forward(input:is_held("P"))` / `moteur:backward(input:is_held("O"))`, vitesse
+modulée toutes les 2 s, `b.actions` listé au démarrage. Validée par le harnais
+MoonSharp (`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
 
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `pilotage.lua installe (SMDEMO v1)` ;
-2. machine avec un moteur (Cog), **aucune liaison mapper** → contrôleur → sim ;
+2. machine avec un moteur (Cog), **aucune liaison mapper** → contrôleur → sim :
+   `b.actions` listé au démarrage ;
 3. tenir **P** → le moteur tourne (avant) ; **O** → arrière ; relâcher → stop ;
-4. console `lua "return moteur.keys"` (tables des touches) ;
-5. vérifier l'arrêt propre (relâchement) à la fin de sim (le moteur s'arrête).
+4. tester sur d'autres types de blocs : `b:contract(true)` (spring), `b:wind(true)`
+   (treuil), `b:spin(true)` (bloc de vol) — noms du mapper ;
+5. vérifier l'arrêt propre (relâchement) à la fin de sim.
 
 *(à compléter : résultats)*

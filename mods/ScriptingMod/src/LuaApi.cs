@@ -102,11 +102,11 @@ namespace ScriptingMod
                 case "rotation":
                     return LuaApi.Vec3(script, bb.transform.eulerAngles);
                 case "forward":
-                    return LuaApi.Vec3(script, bb.transform.forward);
                 case "up":
-                    return LuaApi.Vec3(script, bb.transform.up);
                 case "right":
-                    return LuaApi.Vec3(script, bb.transform.right);
+                    // DUAL : axe du bloc (b.forward = vecteur x/y/z) ET action
+                    // (b:forward(true) = touche du mapper, si le bloc en a une).
+                    return AxisAndAction(script, bb, index.String);
                 case "quaternion":
                 {
                     Quaternion q = bb.transform.rotation;
@@ -142,24 +142,52 @@ namespace ScriptingMod
                 case "set_slider":
                     return DynValue.NewCallback((ctx, args) => SliderWrite(script, args), "set_slider");
                 // --- actionnement direct des touches (sans variables vanilla) ---
-                // NB : "forward"/"up"/"right" existent deja comme AXES (M2) — le sucre
-                // utilise spin (avant) / reverse (arriere), qui relachent l'inverse.
-                case "keys":
-                    return BuildKeysTable(script, bb);
-                case "key":
-                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, null, null), "key");
-                case "spin":
-                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, "forward", "backward"), "spin");
-                case "reverse":
-                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, "backward", "forward"), "reverse");
+                // --- actionnement direct : actions du bloc par leur nom UI ---
+                case "actions":
+                    return BuildActionsTable(script, bb);
+                case "action":
+                    return DynValue.NewCallback((ctx, args) => ActionCommand(script, args), "action");
                 default:
-                    return null;
+                    // b:<nom_action>(etat) : resolution par cle de mapper OU libelle
+                    // UI (insensible a la casse) — ex. b:contract(true), b:wind(true).
+                    return ActionByName(script, bb, index.String);
             }
         }
 
         // --- actionnement direct : MKey.UpdateEmulation (compteur, idempotent) ---
+        // Les actions portent le nom vu dans l'UI : cle de mapper ("forward", "spin",
+        // "contract", "wind"...) ou libelle affiche, insensible a la casse.
 
-        private static DynValue BuildKeysTable(Script script, BlockBehaviour bb)
+        private static UnityEngine.Vector3 AxisVector(BlockBehaviour bb, string axis)
+        {
+            switch (axis)
+            {
+                case "up": return bb.transform.up;
+                case "right": return bb.transform.right;
+                default: return bb.transform.forward;
+            }
+        }
+
+        /// <summary>
+        /// Valeur DUALE pour les axes : table {x,y,z} ET action appelable —
+        /// b.forward (vecteur, M2) et b:forward(true) (touche du mapper, si presente).
+        /// </summary>
+        private DynValue AxisAndAction(Script script, BlockBehaviour bb, string axis)
+        {
+            MKey key = FindKeyByName(bb, axis);
+            DynValue t = LuaApi.Vec3(script, AxisVector(bb, axis));
+            Table meta = new Table(script);
+            meta.Set("__call", DynValue.NewCallback(
+                (ctx, args) => key == null
+                    ? UnknownAction(axis, bb)
+                    : ApplyKey(script, key, args, axis),
+                axis));
+            t.Table.MetaTable = meta;
+            return t;
+        }
+
+        /// <summary>b.actions : table nom appelable -> libelle UI.</summary>
+        private static DynValue BuildActionsTable(Script script, BlockBehaviour bb)
         {
             DynValue result = DynValue.NewTable(script);
             Table table = result.Table;
@@ -170,22 +198,53 @@ namespace ScriptingMod
             foreach (MapperType mt in bb.MapperTypes)
             {
                 MKey key = mt as MKey;
-                if (key != null)
+                if (key == null)
                 {
-                    table.Set(key.Key, DynValue.NewString(key.DisplayName ?? key.Key));
+                    continue;
+                }
+                string libelle = key.DisplayName ?? key.Key;
+                table.Set(key.Key, DynValue.NewString(libelle));
+                if (!string.IsNullOrEmpty(libelle) && table.Get(libelle).IsNil())
+                {
+                    table.Set(libelle, DynValue.NewString(libelle));
                 }
             }
             return result;
         }
 
-        /// <summary>Retrouve une MKey par sa cle (exacte puis insensible a la casse).</summary>
-        private static MKey FindKey(BlockBehaviour bb, string name)
+        /// <summary>b:<nom>(etat) — null si le nom ne correspond a aucune action.</summary>
+        private DynValue ActionByName(Script script, BlockBehaviour bb, string name)
         {
-            if (bb.MapperTypes == null || string.IsNullOrEmpty(name))
+            MKey key = FindKeyByName(bb, name);
+            if (key == null)
+            {
+                return null;    // propriete inconnue (comportement standard : nil)
+            }
+            return DynValue.NewCallback((ctx, args) => ApplyKey(script, key, args, name), name);
+        }
+
+        /// <summary>b:action(nom, etat) — acces generique (noms calcules).</summary>
+        private DynValue ActionCommand(Script script, CallbackArguments args)
+        {
+            string name = FirstStringArg(args);
+            BlockBehaviour bb = m_Block.InternalObject;
+            MKey key = bb == null ? null : FindKeyByName(bb, name);
+            if (key == null)
+            {
+                return UnknownAction(name, bb);
+            }
+            return ApplyKey(script, key, args, name);
+        }
+
+        /// <summary>Retrouve une MKey par cle de mapper OU libelle UI (insensible a la casse).</summary>
+        private static MKey FindKeyByName(BlockBehaviour bb, string name)
+        {
+            if (bb == null || bb.MapperTypes == null || string.IsNullOrEmpty(name))
             {
                 return null;
             }
-            MKey insensitive = null;
+            MKey byKey = null;
+            MKey byDisplay = null;
             foreach (MapperType mt in bb.MapperTypes)
             {
                 MKey key = mt as MKey;
@@ -193,29 +252,26 @@ namespace ScriptingMod
                 {
                     continue;
                 }
-                if (key.Key == name)
+                if (string.Compare(key.Key, name, System.StringComparison.OrdinalIgnoreCase) == 0)
                 {
                     return key;
                 }
-                if (string.Compare(key.Key, name, System.StringComparison.OrdinalIgnoreCase) == 0)
+                if (byDisplay == null && !string.IsNullOrEmpty(key.DisplayName)
+                    && string.Compare(key.DisplayName, name, System.StringComparison.OrdinalIgnoreCase) == 0)
                 {
-                    insensitive = key;
+                    byDisplay = key;
                 }
             }
-            return insensitive;
+            return byDisplay;
         }
 
-        /// <summary>
-        /// b:key("forward", true) — ou sucre b:forward/b:backward/b:spin : la touche
-        /// opposee (si presente) est relachee automatiquement.
-        /// </summary>
-        private DynValue KeyCommand(Script script, CallbackArguments args, string sugarKey, string opposite)
+        /// <summary>Applique l'etat desire a une MKey (transitions uniquement).</summary>
+        private DynValue ApplyKey(Script script, MKey key, CallbackArguments args, string name)
         {
             if (m_Keys == null)
             {
                 throw new ScriptRuntimeException("actionnement direct indisponible dans ce contexte (hors controleur)");
             }
-            string keyName = sugarKey ?? FirstStringArg(args);
             bool? state = null;
             for (int i = 0; i < args.Count; i++)
             {
@@ -225,31 +281,14 @@ namespace ScriptingMod
                     break;
                 }
             }
-            if (string.IsNullOrEmpty(keyName) || !state.HasValue)
+            if (!state.HasValue)
             {
-                throw new ScriptRuntimeException("b:key(nom, etat) : ex. b:key(\"forward\", true) — consultez b.keys pour la liste");
-            }
-
-            BlockBehaviour bb = m_Block.InternalObject;
-            MKey key = bb == null ? null : FindKey(bb, keyName);
-            if (key == null)
-            {
-                throw new ScriptRuntimeException("touche inconnue \"" + keyName
-                    + "\" — consultez b.keys pour la liste des touches du bloc");
+                throw new ScriptRuntimeException("b:" + name + "(etat) : booleen requis, ex. b:"
+                    + name + "(true) — etat complet a chaque tick conseille (ex. b:forward(input:is_held(\"P\")))");
             }
             m_Keys.Set(key, state.Value);
-
-            if (opposite != null)
-            {
-                MKey opp = FindKey(bb, opposite);
-                if (opp != null && opp != key)
-                {
-                    m_Keys.Set(opp, false);      // relache l'inverse automatiquement
-                }
-            }
             return DynValue.Nil;
         }
-        // --- M3 : sliders du bloc (MapperTypes publics, MSlider.Value notifie le bloc) ---
 
         private static DynValue BuildSlidersTable(Script script, BlockBehaviour bb)
         {
@@ -345,6 +384,24 @@ namespace ScriptingMod
                 }
             }
             return null;
+        }
+
+        private static DynValue UnknownAction(string name, BlockBehaviour bb)
+        {
+            string connus = "(aucune)";
+            if (bb != null && bb.MapperTypes != null)
+            {
+                foreach (MapperType mt in bb.MapperTypes)
+                {
+                    MKey k = mt as MKey;
+                    if (k != null)
+                    {
+                        connus = (connus == "(aucune)") ? k.Key : connus + ", " + k.Key;
+                    }
+                }
+            }
+            throw new ScriptRuntimeException("action inconnue \"" + name + "\" sur ce bloc — actions : "
+                + connus + " (b.actions pour la liste complete)");
         }
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)

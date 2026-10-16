@@ -41,6 +41,7 @@ namespace ScriptingMod
         private Script m_Lua;
         private WatchdogDebugger m_Watchdog;
         private LuaActuatorApi m_Actuator;
+        private BlockKeyActuator m_KeyActuator;
         private int m_TickCount;
         private string m_ScriptName;
 
@@ -208,6 +209,7 @@ namespace ScriptingMod
             m_Lua = null;
             m_Watchdog = null;
             m_Actuator = null;
+            m_KeyActuator = null;
 
             if (!m_ActiveToggle.IsActive)
             {
@@ -247,9 +249,13 @@ namespace ScriptingMod
                 m_Watchdog = new WatchdogDebugger(WATCHDOG_BUDGET);
                 m_Lua.AttachDebugger(m_Watchdog);
 
+                // actionnement direct : b:key/forward/backward/spin (sans variables) —
+                // cree AVANT Install : les wrappers de blocs le portent.
+                m_KeyActuator = new BlockKeyActuator();
+
                 // M2 : API capteurs (self, machine, input) — avant DoString pour
                 // que le script puisse les utiliser des on_sim_start.
-                LuaApi.Install(m_Lua, this);
+                LuaApi.Install(m_Lua, this, m_KeyActuator);
 
                 // M3 : API actionneurs — emulate(canal, etat)
                 m_Actuator = new LuaActuatorApi(this);
@@ -313,6 +319,13 @@ namespace ScriptingMod
             {
                 m_Actuator.ResetAll();
                 m_Actuator = null;
+            }
+
+            // actionnement direct : meme symetrie pour les touches pilotees
+            if (m_KeyActuator != null)
+            {
+                m_KeyActuator.ResetAll();
+                m_KeyActuator = null;
             }
 
             m_Lua = null;

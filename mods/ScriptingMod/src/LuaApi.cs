@@ -27,14 +27,14 @@ namespace ScriptingMod
     /// </summary>
     internal static class LuaApi
     {
-        internal static void Install(Script lua, BlockScript controller)
+        internal static void Install(Script lua, BlockScript controller, BlockKeyActuator keys)
         {
             Modding.Blocks.Block selfBlock = Modding.Blocks.Block.From(controller);
             if (selfBlock != null)
             {
-                lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock)));
+                lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock, keys)));
             }
-            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine)));
+            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, keys)));
             lua.Globals.Set("input", UserData.Create(new LuaInputApi()));
         }
 
@@ -61,9 +61,19 @@ namespace ScriptingMod
     {
         private readonly Modding.Blocks.Block m_Block;
 
+        // actionnement direct des touches du bloc (null en contexte console)
+        private readonly BlockKeyActuator m_Keys;
+
         internal LuaBlockApi(Modding.Blocks.Block block)
         {
             m_Block = block;
+            m_Keys = null;
+        }
+
+        internal LuaBlockApi(Modding.Blocks.Block block, BlockKeyActuator keys)
+        {
+            m_Block = block;
+            m_Keys = keys;
         }
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
@@ -131,11 +141,114 @@ namespace ScriptingMod
                     return DynValue.NewCallback((ctx, args) => SliderRead(script, args), "slider");
                 case "set_slider":
                     return DynValue.NewCallback((ctx, args) => SliderWrite(script, args), "set_slider");
+                // --- actionnement direct des touches (sans variables vanilla) ---
+                // NB : "forward"/"up"/"right" existent deja comme AXES (M2) — le sucre
+                // utilise spin (avant) / reverse (arriere), qui relachent l'inverse.
+                case "keys":
+                    return BuildKeysTable(script, bb);
+                case "key":
+                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, null, null), "key");
+                case "spin":
+                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, "forward", "backward"), "spin");
+                case "reverse":
+                    return DynValue.NewCallback((ctx, args) => KeyCommand(script, args, "backward", "forward"), "reverse");
                 default:
                     return null;
             }
         }
 
+        // --- actionnement direct : MKey.UpdateEmulation (compteur, idempotent) ---
+
+        private static DynValue BuildKeysTable(Script script, BlockBehaviour bb)
+        {
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            if (bb.MapperTypes == null)
+            {
+                return result;
+            }
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MKey key = mt as MKey;
+                if (key != null)
+                {
+                    table.Set(key.Key, DynValue.NewString(key.DisplayName ?? key.Key));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Retrouve une MKey par sa cle (exacte puis insensible a la casse).</summary>
+        private static MKey FindKey(BlockBehaviour bb, string name)
+        {
+            if (bb.MapperTypes == null || string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+            MKey insensitive = null;
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MKey key = mt as MKey;
+                if (key == null)
+                {
+                    continue;
+                }
+                if (key.Key == name)
+                {
+                    return key;
+                }
+                if (string.Compare(key.Key, name, System.StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    insensitive = key;
+                }
+            }
+            return insensitive;
+        }
+
+        /// <summary>
+        /// b:key("forward", true) — ou sucre b:forward/b:backward/b:spin : la touche
+        /// opposee (si presente) est relachee automatiquement.
+        /// </summary>
+        private DynValue KeyCommand(Script script, CallbackArguments args, string sugarKey, string opposite)
+        {
+            if (m_Keys == null)
+            {
+                throw new ScriptRuntimeException("actionnement direct indisponible dans ce contexte (hors controleur)");
+            }
+            string keyName = sugarKey ?? FirstStringArg(args);
+            bool? state = null;
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (args[i].Type == MoonSharp.Interpreter.DataType.Boolean)
+                {
+                    state = args[i].Boolean;
+                    break;
+                }
+            }
+            if (string.IsNullOrEmpty(keyName) || !state.HasValue)
+            {
+                throw new ScriptRuntimeException("b:key(nom, etat) : ex. b:key(\"forward\", true) — consultez b.keys pour la liste");
+            }
+
+            BlockBehaviour bb = m_Block.InternalObject;
+            MKey key = bb == null ? null : FindKey(bb, keyName);
+            if (key == null)
+            {
+                throw new ScriptRuntimeException("touche inconnue \"" + keyName
+                    + "\" — consultez b.keys pour la liste des touches du bloc");
+            }
+            m_Keys.Set(key, state.Value);
+
+            if (opposite != null)
+            {
+                MKey opp = FindKey(bb, opposite);
+                if (opp != null && opp != key)
+                {
+                    m_Keys.Set(opp, false);      // relache l'inverse automatiquement
+                }
+            }
+            return DynValue.Nil;
+        }
         // --- M3 : sliders du bloc (MapperTypes publics, MSlider.Value notifie le bloc) ---
 
         private static DynValue BuildSlidersTable(Script script, BlockBehaviour bb)
@@ -255,9 +368,19 @@ namespace ScriptingMod
     {
         private readonly Modding.Blocks.PlayerMachine m_Machine;
 
+        // actionnement direct : registre passe aux wrappers de blocs (null en console)
+        private readonly BlockKeyActuator m_Keys;
+
         internal LuaMachineApi(Modding.Blocks.PlayerMachine machine)
         {
             m_Machine = machine;
+            m_Keys = null;
+        }
+
+        internal LuaMachineApi(Modding.Blocks.PlayerMachine machine, BlockKeyActuator keys)
+        {
+            m_Machine = machine;
+            m_Keys = keys;
         }
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
@@ -341,7 +464,7 @@ namespace ScriptingMod
                 if (found)
                 {
                     n++;
-                    table.Set(n, UserData.Create(new LuaBlockApi(block)));
+                    table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys)));
                 }
             }
             return result;
@@ -380,7 +503,7 @@ namespace ScriptingMod
                     }
                 }
                 n++;
-                table.Set(n, UserData.Create(new LuaBlockApi(block)));
+                table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys)));
             }
 
             return result;

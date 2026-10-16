@@ -36,6 +36,11 @@ namespace ScriptingMod
         // le nom suffit a retrouver le fichier — decision joueur D1-ter).
         private const string KEY_NAME = "sm-script-name";
 
+        // nommage-blocs : noms de blocs embarques dans les donnees du controleur
+        // (voyagent avec le .bsg ; cle = position locale, cf. BlockNames.cs)
+        private const string KEY_NAMES = "sm-block-names";
+        private const string KEY_NAMEPOS = "sm-block-positions";
+
         // M4 : marqueur « n'existe plus » dans le menu (fichier absent).
         private const string MISSING_MARK = "* ";
 
@@ -47,6 +52,10 @@ namespace ScriptingMod
         private LuaActuatorApi m_Actuator;
         private int m_TickCount;
         private string m_ScriptName;
+
+        // nommage-blocs : nom -> position locale (millimetres au format pres BlockNames)
+        private readonly Dictionary<string, UnityEngine.Vector3> m_BlockNames =
+            new Dictionary<string, UnityEngine.Vector3>();
 
         // M3 : indispensable — sans ce flag, la machine n'active pas le systeme
         // d'emulation (Machine.cs lit Prefab.EmulatesAnyKeys, propage depuis notre
@@ -68,19 +77,38 @@ namespace ScriptingMod
 
         public override void OnLoad(XDataHolder data)
         {
-            if (!data.HasKey(KEY_NAME))
+            if (data.HasKey(KEY_NAME))
             {
-                return;     // machine pre-M4 : l'index vanilla suffit (comportement M1)
+                string name = data.ReadString(KEY_NAME);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
+                    // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
+                    // bibliotheque qui a evolue — bug latent M1 corrige).
+                    RepointMenu(name);
+                }
             }
-            string name = data.ReadString(KEY_NAME);
-            if (string.IsNullOrEmpty(name))
+
+            // nommage-blocs : restaurer les noms embarques
+            if (data.HasKey(KEY_NAMES))
             {
-                return;
+                string[] names = data.ReadStringArray(KEY_NAMES);
+                string[] positions = data.HasKey(KEY_NAMEPOS)
+                    ? data.ReadStringArray(KEY_NAMEPOS) : null;
+                m_BlockNames.Clear();
+                if (names != null && positions != null && positions.Length == names.Length)
+                {
+                    for (int i = 0; i < names.Length; i++)
+                    {
+                        UnityEngine.Vector3 pos;
+                        if (names[i] != null && BlockNames.TryParseMm(positions[i], out pos))
+                        {
+                            m_BlockNames[names[i]] = pos;
+                        }
+                    }
+                    Debug.Log("[ScriptingMod] chargement : " + m_BlockNames.Count + " nom(s) de blocs");
+                }
             }
-            Debug.Log("[ScriptingMod] chargement : script \"" + name + "\"");
-            // Repointer le menu par NOM (l'index sauvegarde peut etre decale par une
-            // bibliotheque qui a evolue — bug latent M1 corrige).
-            RepointMenu(name);
         }
 
         public override void OnSave(XDataHolder data)
@@ -90,6 +118,56 @@ namespace ScriptingMod
             {
                 data.Write(KEY_NAME, name);
             }
+            if (m_BlockNames.Count > 0)
+            {
+                string[] names = new string[m_BlockNames.Count];
+                string[] positions = new string[m_BlockNames.Count];
+                int i = 0;
+                foreach (KeyValuePair<string, UnityEngine.Vector3> kv in m_BlockNames)
+                {
+                    names[i] = kv.Key;
+                    positions[i] = BlockNames.ToMm(kv.Value);
+                    i++;
+                }
+                data.Write(KEY_NAMES, names);
+                data.Write(KEY_NAMEPOS, positions);
+            }
+        }
+
+        // --- nommage-blocs : donnees embarquees du controleur ---
+
+        /// <summary>Binde un nom a une position locale (remplace l'ancien porteur du nom).</summary>
+        internal void SetBlockName(string name, UnityEngine.Vector3 pos)
+        {
+            bool remplace = m_BlockNames.ContainsKey(name);
+            m_BlockNames[name] = pos;
+            if (remplace)
+            {
+                ModConsole.Log("[ScriptingMod] nom \"" + name + "\" rebine (ancienne liaison remplacee)");
+            }
+        }
+
+        /// <summary>Supprime un nom.</summary>
+        internal bool RemoveBlockName(string name)
+        {
+            return m_BlockNames.Remove(name);
+        }
+
+        /// <summary>Liens nom -> position locale embarques dans ce controleur.</summary>
+        internal IDictionary<string, UnityEngine.Vector3> BlockNamesTable
+        {
+            get { return m_BlockNames; }
+        }
+
+        /// <summary>Resout un nom dans la machine de ce controleur (nil-equivalent : null).</summary>
+        internal Modding.Blocks.Block ResolveBlockByName(string name)
+        {
+            UnityEngine.Vector3 pos;
+            if (!m_BlockNames.TryGetValue(name, out pos))
+            {
+                return null;
+            }
+            return BlockNames.Resolve(Machine, pos);
         }
 
         /// <summary>

@@ -1,139 +1,90 @@
-// BlockNames — nommage des blocs (experience branche nommage-blocs).
+// BlockNames — utilitaires du nommage des blocs (experience nommage-blocs).
 //
-// Objectif : identifier les blocs depuis Lua sans dependre du systeme vanilla de
-// variables (« name <TAB> guid ») :
-//   - le joueur nomme un bloc (console : `script name <nom>`, bloc selectionne via
-//     Advanced Building ou simplement vise par la souris) ;
-//   - le nom est persiste dans BlockNames.tsv (dossier data du mod) et BINDE au GUID
-//     du bloc — le GUID survit aux sauvegardes/rechargements (c'est leur role) ;
-//   - cote Lua : machine:block("nom") -> bloc ou nil ; machine:named() -> table.
+// Le DICTIONNAIRE nom -> position vit dans les donnees du bloc Microcontroller
+// (OnSave/OnLoad, cf. MicrocontrollerScript) : namespace par machine, noms
+// embarques dans le .bsg (voyagent avec une machine partagee).
 //
-// Modele v0 (experiment) : UN namespace global (pas par machine) — un nom designe
-// un GUID ; la resolution se fait dans la machine courante (un GUID etrang a la
-// machine ne resolve pas). Rebond d'un nom = remplacement silencieux + log.
+// CLE = POSITION LOCALE du bloc dans la machine (millimetres entiers, "x,y,z").
+// Pourquoi pas le GUID : Machine.AddBlocksFromInfo REGENERE tous les GUID a chaque
+// chargement de machine (decomp l.3232, remap interne des refs) — le GUID n'est
+// stable qu'au sein d'une session. La position locale vient du .bsg
+// (BlockInfo.Position) : stable aux chargements et a travers la sim (la machine de
+// sim est une copie Instantiate — decomp l.1911). Limite : DEPLACER le bloc casse
+// son nom (acte visible, contrairement a la regen silencieuse des GUID).
 //
-// NB CLR 2.0 : pas de Guid.TryParse (net40) -> new Guid(string) + catch.
+// NB stockage en millimetres ENTIERS : culture-free (pas de formatage decimal).
 
 using System;
 using System.Collections.Generic;
 using Modding;
+using UnityEngine;
 
 namespace ScriptingMod
 {
     internal static class BlockNames
     {
-        private const string FILE = "BlockNames.tsv";
+        // tolerance de resolution en unites monde (bloc vanilla = 1.0)
+        private const float EPS = 0.05f;
 
-        private static Dictionary<string, Guid> s_Names;
-        private static bool s_Loaded;
+        // --- format persiste (millimetres entiers "x,y,z", culture-free) ---
 
-        private static void EnsureLoaded()
+        internal static string ToMm(Vector3 pos)
         {
-            if (s_Loaded)
+            int x = (int)Math.Round(pos.x * 1000f);
+            int y = (int)Math.Round(pos.y * 1000f);
+            int z = (int)Math.Round(pos.z * 1000f);
+            return x + "," + y + "," + z;
+        }
+
+        internal static bool TryParseMm(string s, out Vector3 pos)
+        {
+            pos = Vector3.zero;
+            if (s == null)
             {
-                return;
+                return false;
             }
-            s_Names = new Dictionary<string, Guid>();
-            s_Loaded = true;
-            try
+            string[] parts = s.Split(',');
+            if (parts.Length != 3)
             {
-                if (!Modding.ModIO.ExistsFile(FILE, data: true))
+                return false;
+            }
+            int x, y, z;
+            if (!int.TryParse(parts[0], out x) || !int.TryParse(parts[1], out y)
+                || !int.TryParse(parts[2], out z))
+            {
+                return false;
+            }
+            pos = new Vector3(x * 0.001f, y * 0.001f, z * 0.001f);
+            return true;
+        }
+
+        /// <summary>
+        /// Resolution d'une position dans la machine : premier bloc dont la position
+        /// locale est a moins de EPS (sim ou construction selon l'etat).
+        /// </summary>
+        internal static Modding.Blocks.Block Resolve(Modding.Blocks.PlayerMachine machine, Vector3 pos)
+        {
+            if (machine == null)
+            {
+                return null;
+            }
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? machine.SimulationBlocks : machine.BuildingBlocks;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb == null)
                 {
-                    return;
+                    continue;
                 }
-                string content = Modding.ModIO.ReadAllText(FILE, data: true);
-                if (content == null)
+                Vector3 p = bb.transform.localPosition;
+                if (Math.Abs(p.x - pos.x) < EPS && Math.Abs(p.y - pos.y) < EPS
+                    && Math.Abs(p.z - pos.z) < EPS)
                 {
-                    return;
-                }
-                foreach (string rawLine in content.Split('\n'))
-                {
-                    string line = rawLine.Trim().TrimStart('#');
-                    if (line.Length == 0)
-                    {
-                        continue;
-                    }
-                    int tab = line.IndexOf('\t');
-                    if (tab <= 0)
-                    {
-                        continue;
-                    }
-                    Guid guid;
-                    try
-                    {
-                        guid = new Guid(line.Substring(tab + 1).Trim());
-                    }
-                    catch (FormatException)
-                    {
-                        continue;
-                    }
-                    s_Names[line.Substring(0, tab).Trim()] = guid;
+                    return block;
                 }
             }
-            catch (Exception)
-            {
-                // fichier illisible : on repart d'une table vide (sauvegarde au prochain Set)
-            }
-        }
-
-        private static void Save()
-        {
-            try
-            {
-                System.Text.StringBuilder sb = new System.Text.StringBuilder();
-                sb.Append("# noms de blocs : nom <TAB> GUID (un nom = un bloc)\n");
-                foreach (KeyValuePair<string, Guid> kv in s_Names)
-                {
-                    sb.Append(kv.Key).Append('\t').Append(kv.Value.ToString()).Append('\n');
-                }
-                Modding.ModIO.WriteAllText(FILE, sb.ToString(), data: true);
-            }
-            catch (Exception ex)
-            {
-                ModConsole.Log("[ScriptingMod] ERREUR sauvegarde BlockNames.tsv : " + ex.Message);
-            }
-        }
-
-        /// <summary>Recupere le GUID binde a un nom.</summary>
-        internal static bool TryGet(string name, out Guid guid)
-        {
-            EnsureLoaded();
-            return s_Names.TryGetValue(name, out guid);
-        }
-
-        /// <summary>Binde un nom a un GUID (remplace l'ancien porteur du nom).</summary>
-        internal static void Set(string name, Guid guid)
-        {
-            EnsureLoaded();
-            bool remplace = s_Names.ContainsKey(name);
-            s_Names[name] = guid;
-            Save();
-            if (remplace)
-            {
-                ModConsole.Log("[ScriptingMod] nom \"" + name + "\" rebine (ancien bloc remplace)");
-            }
-        }
-
-        /// <summary>Supprime un nom.</summary>
-        internal static bool Remove(string name)
-        {
-            EnsureLoaded();
-            bool ok = s_Names.Remove(name);
-            if (ok)
-            {
-                Save();
-            }
-            return ok;
-        }
-
-        /// <summary>Tous les liens nom -> GUID.</summary>
-        internal static IDictionary<string, Guid> All
-        {
-            get
-            {
-                EnsureLoaded();
-                return s_Names;
-            }
+            return null;
         }
     }
 }

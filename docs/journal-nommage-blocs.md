@@ -51,6 +51,35 @@
   erreurs d'usage de l'API ne se voient qu'en jeu ; garder les démos comme
   *smoke-tests* de l'API à chaque évolution.
 
+## Étape 2 — Pivots de conception (discussion joueur)
+
+1. **GUID abandonné** : `Machine.AddBlocksFromInfo` RÉGÉNÈRE tous les GUID à chaque
+   chargement de machine (decomp l.3232) — le GUID n'est stable qu'en session. Un nom
+   binde au GUID mourrait à chaque rechargement de niveau.
+2. **Étude « mécanisme slider »** (proposition joueur) : la valeur d'un slider reste
+   liée à son bloc parce qu'elle vit DANS ses données (clé `bmt-…`, contenance, zéro
+   référencement). Écriture dans `block.LastState` (public) possible MAIS perte
+   silencieuse à chaque régénération d'état (mapper, undo) — écarté.
+3. **Étude concurrentielle** :
+   - ilyshk4 (Lua mod) : clés de référence vanilla (`get_refs_control('rotor')`,
+     groupées) + index — persistance native, pas de noms joueur ;
+   - LenchScripterMod : IDs séquentiels auto (« WHEEL 1 », compteur par type, régénérés
+     par session) + GUID — zéro persistance, renumérotation silencieuse ;
+   - personne ne fait de noms joueur persistants — notre besoin est réel.
+4. **Décisions** :
+   - noms joueur : clé = **position locale** (mm entiers, tolérance 5 cm), stockage
+     dans les données du **Microcontroller** (embarqués dans le .bsg, namespace par
+     machine, voyagent avec une machine partagée) — le seul design sans perte
+     silencieuse (casse visible : déplacer le bloc) ;
+   - ajout de **`machine:refs(canal)`** (idée joueur, convergente avec ilyshk4) :
+     table des blocs dont une touche écoute le message vanilla — persistance native,
+     survit au déplacement, groupé, multi-tags (`a;b`) donc identification compatible
+     avec le canal de contrôle ;
+   - les trois mécanismes (noms / refs / filtre de type) coexistent sur la branche ;
+     le verdict d'usage tranchera ce qui fusionnera dans master.
+5. Noms : commandes `script name/names/unname` écrivent dans TOUS les contrôleurs de
+   construction (instances sauvegardées — les instances de sim sont des copies).
+
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `noms.lua installe (SMDEMO v1)` ;

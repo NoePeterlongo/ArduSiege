@@ -222,7 +222,7 @@ namespace ScriptingMod
             return DynValue.Nil;
         }
 
-        private static string FirstStringArg(CallbackArguments args)
+        internal static string FirstStringArg(CallbackArguments args)
         {
             for (int i = 0; i < args.Count; i++)
             {
@@ -283,9 +283,62 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, m_Machine.Size);
                 case "blocks":
                     return DynValue.NewCallback((ctx, args) => BuildBlocks(script, args), "blocks");
+                // --- Experience nommage-blocs : acces par nom (BlockNames.tsv) ---
+                case "block":
+                    return DynValue.NewCallback((ctx, args) => BlockByName(script, args), "block");
+                case "named":
+                    return NamedTable(script);
                 default:
                     return null;
             }
+        }
+
+        /// <summary>machine:block("nom") -> bloc nomme (nil si absent de la machine).</summary>
+        private DynValue BlockByName(Script script, CallbackArguments args)
+        {
+            string name = LuaBlockApi.FirstStringArg(args);
+            if (name == null)
+            {
+                throw new ScriptRuntimeException("machine:block(nom) : nom requis, ex. machine:block(\"moteur_gauche\")");
+            }
+            System.Guid guid;
+            if (!BlockNames.TryGet(name, out guid))
+            {
+                return DynValue.Nil;
+            }
+            Modding.Blocks.Block found = FindByGuid(guid);
+            return found == null ? DynValue.Nil : UserData.Create(new LuaBlockApi(found));
+        }
+
+        /// <summary>machine:named() -> table nom -> bloc (uniquement ceux resolus dans la machine).</summary>
+        private DynValue NamedTable(Script script)
+        {
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            foreach (System.Collections.Generic.KeyValuePair<string, System.Guid> kv in BlockNames.All)
+            {
+                Modding.Blocks.Block found = FindByGuid(kv.Value);
+                if (found != null)
+                {
+                    table.Set(kv.Key, UserData.Create(new LuaBlockApi(found)));
+                }
+            }
+            return result;
+        }
+
+        private Modding.Blocks.Block FindByGuid(System.Guid guid)
+        {
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? m_Machine.SimulationBlocks : m_Machine.BuildingBlocks;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb != null && bb.Guid == guid)
+                {
+                    return block;
+                }
+            }
+            return null;
         }
 
         private DynValue BuildBlocks(Script script, CallbackArguments args)

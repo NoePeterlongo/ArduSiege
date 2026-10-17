@@ -199,6 +199,10 @@ motor:action("forward", true)   -- generic form (computed names)
 mod only sends changes; if both directions are held, motors prioritize
 forward. All keys are released automatically when the simulation stops.
 
+Note: **all angles in the API are degrees** — matching Besiege's UI (mapper,
+limits, sliders) and Unity internals. When doing trigonometry, convert at the
+boundary with `math.rad(x)` / `math.deg(x)`.
+
 Note: `b.forward` without a call is the block's forward **axis** (a vector);
 `b:forward(true)` with a call drives its forward **action**. Both work on the
 same name.

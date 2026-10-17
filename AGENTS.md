@@ -2,8 +2,9 @@
 
 ## Ce qu'est ce dépôt
 
-Workspace de modding du jeu **Besiege** (Steam, Linux). Le mod **ScriptingMod**
-(bloc Microcontroller + moteur Lua MoonSharp embarqué) est la **référence
+Workspace de modding du jeu **Besiege** (Steam, Linux). Le mod **ArduSiege**
+(anciennement **ScriptingMod**, renommé sans changer aucun ID — bloc
+Microcontroller + moteur Lua MoonSharp embarqué) est la **référence
 fonctionnelle** pour tout nouveau mod. HelloMod (POC initial) a été supprimé
 après la validation de la chaîne complète.
 
@@ -15,10 +16,10 @@ après la validation de la chaîne complète.
 ## Commandes essentielles
 
 ```bash
-# Compiler ScriptingMod (Docker obligatoire — ni mono ni dotnet sur l'hôte)
-bash mods/ScriptingMod/src/build.sh
+# Compiler ArduSiege (Docker obligatoire — ni mono ni dotnet sur l'hôte)
+bash mods/ArduSiege/src/build.sh
 # Docker nécessite le groupe docker ; depuis une session non reloggée :
-sg docker -c "bash mods/ScriptingMod/src/build.sh"
+sg docker -c "bash mods/ArduSiege/src/build.sh"
 
 # Lancer le jeu (depuis la copie)
 cd Besiege && ./Besiege.x86_64
@@ -50,21 +51,28 @@ docs/
   etude-faisabilite-scripting.md  étude avant-projet du mod de scripting
   workflow-scripting.md           décisions D1-D8 (persistance, sandbox, workflow)
   journal-*.md                    journaux des jalons M0-M5 et expériences
-mods/ScriptingMod/
-  ScriptingMod/                   ← dossier chargé par le jeu (Mod.xml + DLLs + blocs)
+mods/ArduSiege/
+  ArduSiege/                      ← dossier chargé par le jeu (Mod.xml + DLLs + blocs)
   src/                            code source + build.sh
 third-party/moonsharp-trimmed/    MoonSharp v2.0.0.0 élagué (source vendored, BSD-2)
 tools/                            build MoonSharp (Docker) + génération d'assets
 decomp/                           jeu décompilé via ILSpy (gitignoré, à regénérer au besoin)
 ```
 
-Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande console, persistant) —
-`mods/ScriptingMod` est déjà enregistré.
+Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande console, persistant).
+Le renommage a invalidé l'ancien enregistrement (`mods/ScriptingMod` n'existe plus) :
+**re-registrer** `addmodsdir <chemin absolu>/mods/ArduSiege` en console, jeu ouvert.
+
+Note migration (renommage ScriptingMod → ArduSiege, IDs inchangés) : le dossier de
+données du jeu est déjà migré sur le disque —
+`Besiege/Besiege_Data/Mods/Data/ScriptingMod_<GUID>/` → `ArduSiege_<GUID>/`
+(scripts et logs déplacés). Les journaux `docs/journal-*.md` historiques mentionnent
+encore ScriptingMod : ce sont des archives, ne pas les retoucher.
 
 ## Contraintes techniques critiques (à respecter)
 
 1. **Runtime CLR 2.0** : compiler avec `mcs -nostdlib -noconfig` en référençant les DLL de
-   `Besiege/Besiege_Data/Managed/` (voir `mods/ScriptingMod/src/build.sh`). Jamais de netstandard/net5+.
+   `Besiege/Besiege_Data/Managed/` (voir `mods/ArduSiege/src/build.sh`). Jamais de netstandard/net5+.
 2. **Liste noire du mod loader** (vérifiée au chargement d'un mod) : pas de `System.IO`,
    `System.Reflection`, `System.Runtime.InteropServices`, `Mono.CSharp`, `Mono.Cecil`,
    `System.CodeDom.Compiler`, IKVM, `UnityEngine.WWW` → pas de compilation C# à runtime,

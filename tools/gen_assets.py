@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genere les assets du bloc Microcontroleur (ScriptingMod, M1).
+"""Genere les assets du bloc Microcontroleur (ArduSiege, M1).
 - microcontroller.obj : cube 0.5, convention OBJ droite (CCW vu de l'exterieur),
   chargeur du jeu : indices 1-based positifs uniquement, triangulation en eventail.
 - microcontroller.png : texture 32x32 style "microcontroleur" (corps PCB, die central,

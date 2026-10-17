@@ -1,4 +1,4 @@
-// WatchdogDebugger - ScriptingMod M0 POC (Besiege).
+// WatchdogDebugger - ArduSiege M0 POC (Besiege).
 //
 // Goal: prove that a runaway Lua script (e.g. `while true do end`) can be
 // interrupted WITHOUT freezing the game. Mechanism: the MoonSharp IDebugger
@@ -17,7 +17,7 @@ using System.Collections.Generic;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Debugging;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     /// <summary>
     /// Thrown by the watchdog when an execution's instruction budget is exceeded.

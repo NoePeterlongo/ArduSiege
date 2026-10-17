@@ -102,7 +102,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		}
 		
 
-		// [TRIMMED — mod ScriptingMod Besiege] Le constructeur ParameterDescriptor(ParameterInfo)
+		// [TRIMMED — mod ArduSiege Besiege] Le constructeur ParameterDescriptor(ParameterInfo)
 		// (réflexion) est supprimé : interdit par l'AssemblyScanner. Les descripteurs de ce
 		// build sont construits manuellement.
 

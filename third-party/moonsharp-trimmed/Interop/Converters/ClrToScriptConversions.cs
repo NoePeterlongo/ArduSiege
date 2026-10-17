@@ -4,7 +4,7 @@ using System.Text;
 namespace MoonSharp.Interpreter.Interop.Converters
 {
 	/// <summary>
-	/// [TRIMMED — mod ScriptingMod Besiege] Les chemins interop réflexifs (MethodInfo,
+	/// [TRIMMED — mod ArduSiege Besiege] Les chemins interop réflexifs (MethodInfo,
 	/// delegates arbitraires, UserData registry) sont supprimés : interdits par
 	/// l'AssemblyScanner. Restent les conversions triviales/primitives, les tables
 	/// (IList/IDictionary) et les énumérations. Voir third-party/README.md (D-M0-2).

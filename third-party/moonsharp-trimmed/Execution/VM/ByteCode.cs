@@ -62,10 +62,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 	#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE) && (!(NETFX_CORE))
 		public void Dump(string file)
 		{
-			// [TRIMMED — mod ScriptingMod Besiege] File.WriteAllText est interdit par
+			// [TRIMMED — mod ArduSiege Besiege] File.WriteAllText est interdit par
 			// l'AssemblyScanner (System.IO.File hors whitelist). Ce dump de debug n'est
 			// pas utilise ; il leve desormais.
-			throw new NotSupportedException("[ScriptingMod] ByteCode.Dump is not available in this trimmed build (System.IO.File forbidden).");
+			throw new NotSupportedException("[ArduSiege] ByteCode.Dump is not available in this trimmed build (System.IO.File forbidden).");
 		}
 	#endif
 

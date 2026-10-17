@@ -25,7 +25,7 @@ using Modding;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     internal class SimLogger
     {
@@ -132,7 +132,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] log flush failed: " + ex.Message);
+                ModConsole.Log("[ArduSiege] log flush failed: " + ex.Message);
             }
         }
 
@@ -150,7 +150,7 @@ namespace ScriptingMod
             }
             Flush();
             int lines = CountLines();
-            ModConsole.Log("[ScriptingMod] log written: " + m_Path + " ("
+            ModConsole.Log("[ArduSiege] log written: " + m_Path + " ("
                 + lines + " lines, " + (m_Buffer.Length / 1024) + " KiB) - 'script logs' opens the folder");
         }
 
@@ -167,12 +167,12 @@ namespace ScriptingMod
                 Modding.ModIO.CreateDirectory(LOGS_DIR, data: true);
                 string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
                 m_Path = LOGS_DIR + "/" + m_ScriptName + "_" + stamp + "." + m_Ext;
-                ModConsole.Log("[ScriptingMod] log opened: " + m_Path);
+                ModConsole.Log("[ArduSiege] log opened: " + m_Path);
             }
             catch (Exception ex)
             {
                 m_Full = true;  // no path -> writes are refused
-                ModConsole.Log("[ScriptingMod] log cannot be created: " + ex.Message);
+                ModConsole.Log("[ArduSiege] log cannot be created: " + ex.Message);
             }
         }
 
@@ -182,7 +182,7 @@ namespace ScriptingMod
             {
                 m_Full = true;
                 Flush();
-                ModConsole.Log("[ScriptingMod] log full (" + (MAX_BYTES / 1024 / 1024)
+                ModConsole.Log("[ArduSiege] log full (" + (MAX_BYTES / 1024 / 1024)
                     + " MB cap) - further writes refused this run");
                 return;
             }

@@ -47,7 +47,7 @@ namespace MoonSharp.Interpreter
 			if (t == typeof(MoonSharp.Interpreter.CoreLib.TableIteratorsModule)) { Register_TableIteratorsModule(gtable, ns); return; }
 			if (t == typeof(MoonSharp.Interpreter.CoreLib.TableModule)) { Register_TableModule(gtable, ns); return; }
 			if (t == typeof(MoonSharp.Interpreter.CoreLib.TableModule_Globals)) { Register_TableModule_Globals(gtable, ns); return; }
-			throw new NotSupportedException("[ScriptingMod] Module non supporte dans ce build MoonSharp elague : " + (t == null ? "<null>" : t.FullName));
+			throw new NotSupportedException("[ArduSiege] Module non supporte dans ce build MoonSharp elague : " + (t == null ? "<null>" : t.FullName));
 		}
 
 		private static void Register_BasicModule(Table gtable, Table ns)

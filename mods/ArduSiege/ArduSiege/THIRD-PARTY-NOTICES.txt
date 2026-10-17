@@ -1,4 +1,4 @@
-ScriptingMod - third-party notices
+ArduSiege - third-party notices
 ==================================
 
 This mod embeds a trimmed build of MoonSharp (http://www.moonsharp.org),

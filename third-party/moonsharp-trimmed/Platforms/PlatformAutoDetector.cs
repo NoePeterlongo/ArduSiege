@@ -6,7 +6,7 @@ namespace MoonSharp.Interpreter.Platforms
 	/// <summary>
 	/// A static class offering properties for autodetection of system/platform details
 	///
-	/// [TRIMMED — mod ScriptingMod Besiege] La détection automatique utilisait de la
+	/// [TRIMMED — mod ArduSiege Besiege] La détection automatique utilisait de la
 	/// réflexion (AppDomain.GetAssemblies) et System.Linq.Expressions (sonde AOT),
 	/// interdites par l'AssemblyScanner du mod loader. Valeurs codées en dur pour
 	/// Unity 5.4 / Mono (CLR 2.0). Voir third-party/README.md et docs/journal-m0.md.
@@ -57,7 +57,7 @@ namespace MoonSharp.Interpreter.Platforms
 
 		internal static IScriptLoader GetDefaultScriptLoader()
 		{
-			return new InvalidScriptLoader("ScriptingMod (Besiege)");
+			return new InvalidScriptLoader("ArduSiege (Besiege)");
 		}
 	}
 }

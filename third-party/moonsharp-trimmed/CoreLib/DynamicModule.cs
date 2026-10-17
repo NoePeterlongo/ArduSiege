@@ -10,7 +10,7 @@ namespace MoonSharp.Interpreter.CoreLib
 	[MoonSharpModule(Namespace = "dynamic")]
 	public class DynamicModule
 	{
-		// [TRIMMED — mod ScriptingMod Besiege] En amont : UserData.RegisterType<
+		// [TRIMMED — mod ArduSiege Besiege] En amont : UserData.RegisterType<
 		// DynamicExprWrapper>(HideMembers) — le registre reflexif est interdit par
 		// l'AssemblyScanner. DynamicExprWrapper implement desormais IUserDataType
 		// (boite noire), servis automatiquement par UserData.Create. Ce module n'est

@@ -1,13 +1,13 @@
 ﻿<Mod>
-    <Name>ScriptingMod</Name>
+    <Name>ArduSiege</Name>
     <Author>noe</Author>
     <Version>0.5.0</Version>
-    <Description>Embedded Lua scripting + Microcontroller block: sensors, direct actuation, per-sim logs, hot reload. M5.</Description>
+    <Description>Embedded Lua scripting + Microcontroller block: sensors, direct actuation, per-sim logs, hot reload.</Description>
     <MultiplayerCompatible>false</MultiplayerCompatible>
     <Debug>true</Debug>
     <Assemblies>
         <Assembly path="MoonSharp.Interpreter.dll" />
-        <Assembly path="ScriptingMod.dll" />
+        <Assembly path="ArduSiege.dll" />
     </Assemblies>
     <Resources>
         <Mesh name="microcontroller-mesh" path="microcontroller.obj" />

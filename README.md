@@ -1,4 +1,4 @@
-# ScriptingMod — Lua scripting for Besiege machines
+# ArduSiege — Lua scripting for Besiege machines
 
 Script your Besiege machines in **Lua**: read sensors, run control loops at
 50 Hz, drive blocks — no in-game key bindings required. The **Microcontroller**
@@ -16,17 +16,18 @@ Version 0.5.x — English player docs. Engineering journals live in `docs/`.
 
 ## 1. Installation
 
-**Player install (manual, until the Workshop page exists):**
+**Player install (from a GitHub zip):**
 
-1. Copy the `ScriptingMod` folder (the one containing `Mod.xml`) into the
-   game's `Besiege_Data/Mods/` directory.
+1. Download and unzip the repository, then copy the `ArduSiege` folder (the
+   one inside `mods/`, containing `Mod.xml`) into the game's
+   `Besiege_Data/Mods/` directory.
 2. Launch Besiege, enter any level — mods load on level entry.
-3. Open the console (`Ctrl+Shift+K`) and check the mod list: version 0.5.0.
+3. Open the console (`Ctrl+Shift+K`) and check the mod list: ArduSiege 0.5.0.
 
 **Development setup (this repository):** from the in-game console, run
 
 ```
-addmodsdir <absolute path to>/mods/ScriptingMod
+addmodsdir <absolute path to>/mods/ArduSiege
 ```
 
 This registers the mod directory persistently — the game loads the mod
@@ -60,7 +61,7 @@ re-enter the level to see new files.
 ### Scripts live in the library, not inside machines
 
 Scripts are plain `.lua` files in the mod's data folder
-(`Besiege_Data/Mods/Data/ScriptingMod_<GUID>/Scripts/`). A machine stores only
+(`Besiege_Data/Mods/Data/ArduSiege_<GUID>/Scripts/`). A machine stores only
 the **name** of its script — the library is the single source of truth:
 
 - rename or delete a file and machines referencing it tell you at simulation
@@ -77,15 +78,17 @@ scripts. Each simulation starts with fresh script state.
 ```lua
 local self = self                          -- the Microcontroller itself
 local motors = machine:blocks("Cog")        -- by type/prefab (substring, case-insensitive)
-local group = machine:refs("left")         -- blocks whose key listens to the
-                                            -- vanilla message "left" (mapper
-                                            -- "variable instead of key" field,
-                                            -- Advanced Building required)
+local group = machine:refs("left")         -- every block tagged "left"
 ```
 
-`refs` is the vanilla binding system read natively: it persists in the
-machine save and survives moving blocks. It accepts several tags per key
-(`left;boost`), so control channels and identification can share one binding.
+**Tagging blocks with `refs`**: in a block's mapper, the "variable instead of
+key" field (Advanced Building required) attaches a **tag** to any of the
+block's actions — whichever you like. This is just a trick to **identify**
+blocks: `machine:refs("left")` returns every block tagged `left`, the tag
+persists in the machine save and survives moving blocks, and one key accepts
+several tags (`left;boost`). As a bonus, `emulate("left", true)` can also
+drive the tagged keys as a group — but identification alone is the main use,
+and no tag is ever required to actuate a block (see below).
 
 ### What you can read (sensors)
 
@@ -107,7 +110,49 @@ emulate("left", input:is_held("A"))     -- vanilla variable channel (optional)
 No vanilla binding is needed for actions and sliders — `emulate`/`refs` are
 optimal conveniences, not prerequisites.
 
-## 4. Logging data
+## 4. A complete example
+
+Save this as `drive.lua` in the library (`script folder`), select it on a
+Microcontroller placed on a machine with a Cog (powered) — nothing to bind
+anywhere:
+
+```lua
+-- drive.lua: drive every motor with P, log the machine state every second
+local motors = nil
+local ticks = 0
+
+function on_sim_start()
+    motors = machine:blocks("Cog")
+    print(#motors .. " motor(s) found")
+    log.ext = "csv"
+    log.row("t", "speed", "height")     -- header
+end
+
+function on_tick()
+    ticks = ticks + 1
+    local gas = input:is_held("P")
+    for i = 1, #motors do
+        motors[i]:forward(gas)          -- full state every tick
+        motors[i]:backward(false)
+    end
+    if ticks % 50 == 0 then             -- one row per second
+        local p = self.position
+        local v = self.velocity
+        local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
+        log.row(ticks / 50, speed, p.y)
+    end
+end
+
+function on_sim_stop()
+    print("drive: done after " .. ticks .. " ticks")
+end
+```
+
+Hold **P**: the motors spin; `script logs` opens the CSV. Swap the action for
+`b:contract(true)` on a spring, `b:wind(true)` on a winch — the names are the
+ones you see in each block's mapper (`b.actions` lists them).
+
+## 5. Logging data
 
 `log` writes one file per simulation — content and format are entirely yours:
 
@@ -124,7 +169,7 @@ lines and closed automatically at simulation stop — even if the script
 errored. Numbers are locale-invariant (French Windows does not break your CSV
 decimals). 2 MB cap per run. `script logs` opens the folder.
 
-## 5. Reference frames and units
+## 6. Reference frames and units
 
 **Positions, velocities are always world-space** (X east, Y up, Z north).
 
@@ -144,7 +189,7 @@ its forward axis. `machine.rotation` gives Euler angles.
 **All angles are degrees** — matching Besiege's UI. Convert at trigonometry
 boundaries with `math.rad(x)` / `math.deg(x)`.
 
-## 6. Console commands
+## 7. Console commands
 
 | Command | Effect |
 |---|---|
@@ -158,7 +203,7 @@ boundaries with `math.rad(x)` / `math.deg(x)`.
 | `watchdog` | Test the infinite-loop protection (must be interrupted) |
 | `watchdog budget [n]` | Read/set the per-tick script instruction budget (default 1000000) |
 
-## 7. API reference
+## 8. API reference
 
 ### Globals
 
@@ -255,7 +300,7 @@ Key names are Unity `KeyCode` names: `P`, `Space`, `LeftControl`, `Mouse0`...
 - Multiplayer: declared incompatible (emulation is host-only by design).
 - Two scripts driving the same key/action add up — your responsibility.
 
-## 8. Building from source
+## 9. Building from source
 
 Requirements: Docker (image `mono:6.12` pulled automatically). No local
 mono/dotnet needed.
@@ -265,7 +310,7 @@ mono/dotnet needed.
 bash tools/moonsharp-build.sh
 
 # build the mod DLL
-bash mods/ScriptingMod/src/build.sh
+bash mods/ArduSiege/src/build.sh
 ```
 
 The game runs a security scanner on mod assemblies: no `System.IO` (beyond a
@@ -276,7 +321,7 @@ history: `AGENTS.md`, `docs/journal-*.md`. Build artifacts (`*.dll`) are not
 committed; the game must be closed when editing `Mod.xml` (the loader watches
 XML files and regenerates the mod GUID otherwise).
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Meaning |
 |---|---|
@@ -289,15 +334,15 @@ XML files and regenerates the mod GUID otherwise).
 | Script stops after an error | By design; fix and rerun. The watchdog may also have tripped (`watchdog budget`) |
 | Mod does not appear in game | Check `Besiege_Data/Mods/` placement or `addmodsdir` registration; mods load on level entry |
 
-## 10. Credits and licenses
+## 11. Credits and licenses
 
 - **[MoonSharp](https://github.com/moonsharp-devs/moonsharp)** by Marco
   Mastropaolo (BSD-2-Clause) — the Lua interpreter, in a trimmed build. Full
-  license text and trim details: `ScriptingMod/ScriptingMod/THIRD-PARTY-NOTICES.txt`.
+  license text and trim details: `mods/ArduSiege/ArduSiege/THIRD-PARTY-NOTICES.txt`.
 - **[Lua Scripting Mod](https://steamcommunity.com/sharedfiles/filedetails/?id=2383785201)**
   by ilyshk4 — design inspiration (variable-based addressing, steering
   control); no code copied.
 - **Lench Scripter Mod** by lenartbezek — API patterns studied while designing
   block addressing.
 
-ScriptingMod code: MIT (see `mods/ScriptingMod/LICENSE.txt`).
+ArduSiege code: MIT (see `mods/ArduSiege/LICENSE.txt`).

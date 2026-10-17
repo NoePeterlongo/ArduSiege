@@ -17,7 +17,7 @@ namespace MoonSharp.Interpreter.CoreLib
 		[MoonSharpModuleMethod]
 		public static DynValue debug(ScriptExecutionContext executionContext, CallbackArguments args)
 		{
-			// [TRIMMED — mod ScriptingMod Besiege] Le REPL interactif (ReplInterpreter)
+			// [TRIMMED — mod ArduSiege Besiege] Le REPL interactif (ReplInterpreter)
 			// est retire de ce build ; debug.debug n'est pas supporte.
 			throw new ScriptRuntimeException("debug.debug not supported in this trimmed build (REPL removed)");
 		}

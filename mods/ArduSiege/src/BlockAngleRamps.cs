@@ -15,7 +15,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     internal class BlockAngleRamps
     {

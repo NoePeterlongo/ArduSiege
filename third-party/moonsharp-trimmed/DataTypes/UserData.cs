@@ -11,7 +11,7 @@ namespace MoonSharp.Interpreter
 	/// Class exposing C# objects as Lua userdata.
 	/// For efficiency, a global registry of types is maintained, instead of a per-script one.
 	///
-	/// [TRIMMED — mod ScriptingMod Besiege] Le registre interop réflexif
+	/// [TRIMMED — mod ArduSiege Besiege] Le registre interop réflexif
 	/// (TypeDescriptorRegistry, descripteurs par réflexion) est interdit par
 	/// l'AssemblyScanner du mod loader Besiege. Il est remplacé par :
 	///   - les objets implémentant IUserDataType (auto-descripteurs), servis par
@@ -56,7 +56,7 @@ namespace MoonSharp.Interpreter
 		public static InteropAccessMode DefaultAccessMode { get; set; }
 
 		private const string TRIMMED_MSG =
-			"[ScriptingMod] Reflection-based userdata registration is not available in this trimmed MoonSharp build. " +
+			"[ArduSiege] Reflection-based userdata registration is not available in this trimmed MoonSharp build. " +
 			"Use IUserDataType-implementing objects or explicit descriptors (UserData.Create(object, IUserDataDescriptor)).";
 
 		/// <summary>

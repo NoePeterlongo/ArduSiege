@@ -78,14 +78,14 @@ namespace MoonSharp.Interpreter.Serialization.Json
 		/// <summary>
 		/// Converts a generic object to JSON
 		///
-		/// [TRIMMED — mod ScriptingMod Besiege] Le chemin ObjectValueConverter
+		/// [TRIMMED — mod ArduSiege Besiege] Le chemin ObjectValueConverter
 		/// (sérialisation réflexive d'objets CLR arbitraires) est retiré : interdit
 		/// par l'AssemblyScanner. Sérialiser des valeurs Lua (json.serialize) reste
 		/// fonctionnel via ValueToJson.
 		/// </summary>
 		public static string ObjectToJson(object obj)
 		{
-			throw new NotSupportedException("[ScriptingMod] ObjectToJson (CLR object serialization) is not available in this trimmed MoonSharp build.");
+			throw new NotSupportedException("[ArduSiege] ObjectToJson (CLR object serialization) is not available in this trimmed MoonSharp build.");
 		}
 
 

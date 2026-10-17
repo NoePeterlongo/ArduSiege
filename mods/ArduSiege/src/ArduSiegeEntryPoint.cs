@@ -1,4 +1,4 @@
-// ScriptingModEntryPoint - M0 POC (Besiege).
+// ArduSiegeEntryPoint - M0 POC (Besiege).
 //
 // Validates in game, end to end:
 //   1. that the trimmed MoonSharp DLL (third-party/moonsharp-trimmed) passes the
@@ -22,9 +22,9 @@ using MoonSharp.Interpreter;
 // with MoonSharp.Interpreter.DataType (Lua value types).
 using MoonDataType = MoonSharp.Interpreter.DataType;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
-    public class ScriptingModEntryPoint : ModEntryPoint
+    public class ArduSiegeEntryPoint : ModEntryPoint
     {
         // Per-execution budget (VM instructions per DoString/Call) - to be calibrated.
         private const long WATCHDOG_BUDGET = 50000000L;
@@ -34,7 +34,7 @@ namespace ScriptingMod
 
         public override void OnLoad()
         {
-            ModConsole.Log("[ScriptingMod] M1: loading...");
+            ModConsole.Log("[ArduSiege] M1: loading...");
 
             try
             {
@@ -58,7 +58,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] MoonSharp init ERROR: " + ex);
+                ModConsole.Log("[ArduSiege] MoonSharp init ERROR: " + ex);
                 return;
             }
 
@@ -67,14 +67,14 @@ namespace ScriptingMod
                 "print('hello depuis Lua !') " +
                 "return string.format('%s %s', _VERSION, _MOONSHARP.version)");
             if (helloResult != null)
-                ModConsole.Log("[ScriptingMod] hello OK -> " + helloResult);
+                ModConsole.Log("[ArduSiege] hello OK -> " + helloResult);
 
             // 4. Sanbox verifiee : io/load interdits, os.time autorise
             string sandboxResult = RunLua(
                 "local ok = (io == nil) and (load == nil) and (os ~= nil and os.time() > 0)\n" +
                 "return ok and 'sandbox OK' or 'SANDBOX KO'");
             if (sandboxResult != null)
-                ModConsole.Log("[ScriptingMod] sandbox -> " + sandboxResult);
+                ModConsole.Log("[ArduSiege] sandbox -> " + sandboxResult);
 
             // 5. Commandes console de test
             ModConsole.RegisterCommand("lua", LuaCommand,
@@ -96,7 +96,7 @@ namespace ScriptingMod
             // 6. M1: seed the script library (the mod's data folder)
             SeedScriptLibrary();
 
-            ModConsole.Log("[ScriptingMod] M1 ready. Commands: lua \"<code>\", bench, watchdog");
+            ModConsole.Log("[ArduSiege] M1 ready. Commands: lua \"<code>\", bench, watchdog");
         }
 
         // --- M1: script library (the mod's persistent data folder) ---
@@ -122,7 +122,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] library seed ERROR: " + ex.Message);
+                ModConsole.Log("[ArduSiege] library seed ERROR: " + ex.Message);
             }
         }
 
@@ -139,7 +139,7 @@ namespace ScriptingMod
                 if (!Modding.ModIO.ExistsFile(path, data: true))
                 {
                     Modding.ModIO.WriteAllText(path, content, data: true);
-                    ModConsole.Log("[ScriptingMod] library: " + fileName + " installed (" + tag + ")");
+                    ModConsole.Log("[ArduSiege] library: " + fileName + " installed (" + tag + ")");
                     return;
                 }
 
@@ -162,11 +162,11 @@ namespace ScriptingMod
                     return; // a jour
                 }
                 Modding.ModIO.WriteAllText(path, content, data: true);
-                ModConsole.Log("[ScriptingMod] library: " + fileName + " updated (" + tag + ")");
+                ModConsole.Log("[ArduSiege] library: " + fileName + " updated (" + tag + ")");
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] demo " + fileName + ": " + ex.Message);
+                ModConsole.Log("[ArduSiege] demo " + fileName + ": " + ex.Message);
             }
         }
 
@@ -404,17 +404,17 @@ namespace ScriptingMod
             }
             catch (WatchdogBudgetExceededException wex)
             {
-                ModConsole.Log("[ScriptingMod] WATCHDOG: " + wex.Message);
+                ModConsole.Log("[ArduSiege] WATCHDOG: " + wex.Message);
                 return null;
             }
             catch (InterpreterException iex) // couvre SyntaxErrorException + ScriptRuntimeException
             {
-                ModConsole.Log("[ScriptingMod] Lua ERROR: " + (iex.DecoratedMessage ?? iex.Message));
+                ModConsole.Log("[ArduSiege] Lua ERROR: " + (iex.DecoratedMessage ?? iex.Message));
                 return null;
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] unexpected ERROR: " + ex);
+                ModConsole.Log("[ArduSiege] unexpected ERROR: " + ex);
                 return null;
             }
         }
@@ -452,7 +452,7 @@ namespace ScriptingMod
             ActiveRuntime = lua;
             ActiveWatchdog = watchdog;
             ActiveScriptName = scriptName;
-            ModConsole.Log("[ScriptingMod] lua console -> microcontroller context (" + (scriptName ?? "?") + ")");
+            ModConsole.Log("[ArduSiege] lua console -> microcontroller context (" + (scriptName ?? "?") + ")");
         }
 
         internal static void ClearActiveRuntime()
@@ -511,7 +511,7 @@ namespace ScriptingMod
 
             string result = RunLua(target, watchdog, code, "console");
             if (result != null)
-                ModConsole.Log("[ScriptingMod] -> " + result);
+                ModConsole.Log("[ArduSiege] -> " + result);
         }
 
         private void BenchCommand(string[] cmdArgs)

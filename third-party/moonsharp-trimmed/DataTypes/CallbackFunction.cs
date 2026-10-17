@@ -76,7 +76,7 @@ namespace MoonSharp.Interpreter
 			}
 		}
 
-		// [TRIMMED — mod ScriptingMod Besiege] FromDelegate, FromMethodInfo et
+		// [TRIMMED — mod ArduSiege Besiege] FromDelegate, FromMethodInfo et
 		// CheckCallbackSignature supprimés : ils s'appuient sur System.Reflection
 		// (interdit par l'AssemblyScanner). Le constructeur par délégué reste le
 		// chemin officiel du mod. Voir third-party/README.md.

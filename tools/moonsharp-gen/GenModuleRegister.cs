@@ -1,4 +1,4 @@
-// GenModuleRegister — fait partie du build du mod ScriptingMod (Besiege).
+// GenModuleRegister — fait partie du build du mod ArduSiege (Besiege).
 //
 // PROBLÈME : MoonSharp enregistre ses modules CoreLib (string, math, table, coroutine,
 // json, os.time...) PAR RÉFLEXION (ModuleRegister : GetMethods/GetFields/
@@ -99,7 +99,7 @@ class GenModuleRegister
 		{
 			sb.AppendLine("\t\t\tif (t == typeof(" + m.FullName.Replace('+', '.') + ")) { Register_" + m.Name + "(gtable, ns); return; }");
 		}
-		sb.AppendLine("\t\t\tthrow new NotSupportedException(\"[ScriptingMod] Module non supporte dans ce build MoonSharp elague : \" + (t == null ? \"<null>\" : t.FullName));");
+		sb.AppendLine("\t\t\tthrow new NotSupportedException(\"[ArduSiege] Module non supporte dans ce build MoonSharp elague : \" + (t == null ? \"<null>\" : t.FullName));");
 		sb.AppendLine("\t\t}");
 		sb.AppendLine();
 

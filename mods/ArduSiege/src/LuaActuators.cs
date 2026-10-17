@@ -1,4 +1,4 @@
-// LuaActuators - ScriptingMod M3 (Besiege): actuator API.
+// LuaActuators - ArduSiege M3 (Besiege): actuator API.
 //
 // emulate(channel, state) - drives vanilla blocks through native key emulation:
 //   - the player binds a block key to the MESSAGE "mychannel" in its mapper
@@ -22,7 +22,7 @@ using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 using UnityEngine;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     internal class LuaActuatorApi : IUserDataType
     {
@@ -137,12 +137,12 @@ namespace ScriptingMod
                     if (!m_Warned.Contains(channel))
                     {
                         m_Warned.Add(channel);
-                        ModConsole.Log("[ScriptingMod] actuator: channel \""
+                        ModConsole.Log("[ArduSiege] actuator: channel \""
                             + channel + "\" has no listener - bind a block key to this MESSAGE in its mapper (variable: \""
                             + channel + "\")");
                         // Probe: shows exactly what the machine's MKeys contain
                         // (typed message, useMessage, keycodes).
-                        ModConsole.Log("[ScriptingMod] machine keys dump: " + m_Controller.DumpMachineKeys());
+                        ModConsole.Log("[ArduSiege] machine keys dump: " + m_Controller.DumpMachineKeys());
                     }
                     continue;
                 }
@@ -159,7 +159,7 @@ namespace ScriptingMod
                     if (!m_Errored.Contains(channel))
                     {
                         m_Errored.Add(channel);
-                        ModConsole.Log("[ScriptingMod] ERROR emulate(\"" + channel + "\"): "
+                        ModConsole.Log("[ArduSiege] ERROR emulate(\"" + channel + "\"): "
                             + ex.GetType().FullName + ": " + ex.Message);
                     }
                     continue;

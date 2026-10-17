@@ -206,7 +206,7 @@ namespace MoonSharp.Interpreter
 
 			if (!Processor.IsDumpStream(codeStream))
 			{
-				// [TRIMMED — mod ScriptingMod Besiege] System.IO.StreamReader n'est pas
+				// [TRIMMED — mod ArduSiege Besiege] System.IO.StreamReader n'est pas
 				// whitelisté par l'AssemblyScanner (la whitelist couvre Stream/TextReader/
 				// TextWriter/BinaryReader/BinaryWriter/MemoryStream/Path/SeekOrigin) : lecture
 				// manuelle du flux via Stream + Encoding.UTF8, tous deux autorisés.

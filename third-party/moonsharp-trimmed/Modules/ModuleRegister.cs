@@ -8,7 +8,7 @@ namespace MoonSharp.Interpreter
 	/// <summary>
 	/// Class managing modules (mostly as extension methods)
 	///
-	/// [TRIMMED — mod ScriptingMod Besiege] L'enregistrement des modules amont
+	/// [TRIMMED — mod ArduSiege Besiege] L'enregistrement des modules amont
 	/// fonctionne par réflexion (GetMethods/GetFields/GetCustomAttributes +
 	/// Delegate.CreateDelegate), interdite par l'AssemblyScanner du mod loader.
 	/// Il est remplacé par un registre GENERÉ hors-ligne :

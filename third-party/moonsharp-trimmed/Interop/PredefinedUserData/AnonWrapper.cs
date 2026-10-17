@@ -15,7 +15,7 @@ namespace MoonSharp.Interpreter.Interop
 	/// if a type which is not exposed to scripts but can be managed as a "black box" by scripts is desired.
 	/// </summary>
 	/// <typeparam name="T">The type to wrap</typeparam>
-	// [TRIMMED — mod ScriptingMod Besiege] En amont, AnonWrapper<T> etait enregistre
+	// [TRIMMED — mod ArduSiege Besiege] En amont, AnonWrapper<T> etait enregistre
 	// dans le registre interop reflexif (mode HideMembers) par le ctor statique de
 	// UserData — registre interdit par l'AssemblyScanner. Implémentation IUserDataType
 	// (boite noire : aucun membre expose aux scripts), le chemin supporte par notre

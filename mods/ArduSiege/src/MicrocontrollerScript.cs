@@ -1,4 +1,4 @@
-// MicrocontrollerScript - the "Microcontroller" block of ScriptingMod (Besiege).
+// MicrocontrollerScript - the "Microcontroller" block of ArduSiege (Besiege).
 //
 //   M1: vanilla mapper (script menu + "active" toggle), Lua runtime per simulation,
 //       on_tick at 50 Hz, fresh state every run, watchdog-bounded executions.
@@ -19,7 +19,7 @@ using UnityEngine;
 // Alias DataType : Modding.DataType (jeu) vs MoonSharp.Interpreter.DataType (Lua).
 using MoonDataType = MoonSharp.Interpreter.DataType;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     public class MicrocontrollerScript : BlockScript
     {
@@ -63,7 +63,7 @@ namespace ScriptingMod
             m_ScriptMenu = AddMenu("script", 0, GetScriptList(), footerMenu: false);
             m_ActiveToggle = AddToggle("actif", "actif", true);
 
-            Debug.Log("[ScriptingMod] Microcontroller: SafeAwake (block instantiated)");
+            Debug.Log("[ArduSiege] Microcontroller: SafeAwake (block instantiated)");
         }
 
         // --- M4: name-based persistence (D1-ter) - the library is the truth ---
@@ -75,7 +75,7 @@ namespace ScriptingMod
                 string name = data.ReadString(KEY_NAME);
                 if (!string.IsNullOrEmpty(name))
                 {
-                    Debug.Log("[ScriptingMod] load: script \"" + name + "\"");
+                    Debug.Log("[ArduSiege] load: script \"" + name + "\"");
                     // Re-point the menu BY NAME (the saved index may be shifted by a
                     // library that changed since - latent M1 bug fixed).
                     RepointMenu(name);
@@ -129,7 +129,7 @@ namespace ScriptingMod
         /// <summary>
         /// Refreshes the menu from the library (new scripts visible without
         /// restarting the level), keeping the current selection by name.
-        /// Called on mapper open (onMapperOpen, see ScriptingModEntryPoint).
+        /// Called on mapper open (onMapperOpen, see ArduSiegeEntryPoint).
         /// </summary>
         internal void RefreshMenu()
         {
@@ -182,13 +182,13 @@ namespace ScriptingMod
             string name = MenuSelection;
             if (name == null || name == "(no script)")
             {
-                ModConsole.Log("[ScriptingMod] reload: no script associated");
+                ModConsole.Log("[ArduSiege] reload: no script associated");
                 return false;
             }
             string file = ReadScript(name);
             if (file == null)
             {
-                ModConsole.Log("[ScriptingMod] reload: file not found: " + name
+                ModConsole.Log("[ArduSiege] reload: file not found: " + name
                     + " (renamed/deleted? - 'script list' for the library)");
                 return false;
             }
@@ -203,7 +203,7 @@ namespace ScriptingMod
             {
                 OnSimulateStart();      // remount with the fresh source
             }
-            ModConsole.Log("[ScriptingMod] " + name + ": reloaded"
+            ModConsole.Log("[ArduSiege] " + name + ": reloaded"
                 + (remount ? " and re-executed" : " (applied at next simulation start)"));
             return true;
         }
@@ -220,7 +220,7 @@ namespace ScriptingMod
 
             if (!m_ActiveToggle.IsActive)
             {
-                Debug.Log("[ScriptingMod] Microcontroller: inactive (toggle off)");
+                Debug.Log("[ArduSiege] Microcontroller: inactive (toggle off)");
                 return;
             }
 
@@ -231,7 +231,7 @@ namespace ScriptingMod
             m_ScriptName = name;
             if (source == null)
             {
-                ModConsole.Log("[ScriptingMod] Microcontroller: script \""
+                ModConsole.Log("[ArduSiege] Microcontroller: script \""
                     + (name ?? "?") + "\" not found in the library (renamed/deleted?)"
                     + " - this controller does nothing this run. 'script list' to see the library.");
                 return;
@@ -273,19 +273,19 @@ namespace ScriptingMod
                 m_Watchdog.Reset();
                 m_Lua.DoString(source, null, m_ScriptName);
                 CallIfDefined("on_sim_start");
-                Debug.Log("[ScriptingMod] Microcontroller: script " + m_ScriptName + " started");
+                Debug.Log("[ArduSiege] Microcontroller: script " + m_ScriptName + " started");
 
                 // M2: the `lua` console command will run in THIS context
-                ScriptingModEntryPoint.SetActiveRuntime(m_Lua, m_Watchdog, m_ScriptName);
+                ArduSiegeEntryPoint.SetActiveRuntime(m_Lua, m_Watchdog, m_ScriptName);
             }
             catch (WatchdogBudgetExceededException wex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: watchdog at load (" + wex.Budget + ") - script disabled");
+                Debug.LogWarning("[ArduSiege] Microcontroller: watchdog at load (" + wex.Budget + ") - script disabled");
                 m_Lua = null;
             }
             catch (InterpreterException iex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: Lua error at load: "
+                Debug.LogWarning("[ArduSiege] Microcontroller: Lua error at load: "
                     + (iex.DecoratedMessage ?? iex.Message));
                 m_Lua = null;
             }
@@ -310,13 +310,13 @@ namespace ScriptingMod
             }
             catch (WatchdogBudgetExceededException wex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: script " + m_ScriptName
+                Debug.LogWarning("[ArduSiege] Microcontroller: script " + m_ScriptName
                     + " disabled (tick " + m_TickCount + ": budget " + wex.Budget + " exceeded)");
                 m_Lua = null;
             }
             catch (InterpreterException iex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: Lua error tick " + m_TickCount
+                Debug.LogWarning("[ArduSiege] Microcontroller: Lua error tick " + m_TickCount
                     + ": " + (iex.DecoratedMessage ?? iex.Message));
                 m_Lua = null;               // disabled until the next run
             }
@@ -357,7 +357,7 @@ namespace ScriptingMod
 
             m_Lua = null;
             m_Watchdog = null;
-            ScriptingModEntryPoint.ClearActiveRuntime();
+            ArduSiegeEntryPoint.ClearActiveRuntime();
         }
 
         // --- M3: channel application at the official emulation tick (host) ---
@@ -516,7 +516,7 @@ namespace ScriptingMod
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: cannot list scripts: " + ex.Message);
+                Debug.LogWarning("[ArduSiege] Microcontroller: cannot list scripts: " + ex.Message);
             }
             if (names.Count == 0)
             {
@@ -542,7 +542,7 @@ namespace ScriptingMod
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning("[ScriptingMod] Microcontroller: cannot read (" + name + "): " + ex.Message);
+                Debug.LogWarning("[ArduSiege] Microcontroller: cannot read (" + name + "): " + ex.Message);
                 return null;
             }
         }

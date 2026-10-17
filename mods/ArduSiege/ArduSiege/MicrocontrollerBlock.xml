@@ -7,7 +7,7 @@
         <Keyword>Script</Keyword>
         <Keyword>Lua</Keyword>
     </SearchKeywords>
-    <Script>ScriptingMod.MicrocontrollerScript</Script>
+    <Script>ArduSiege.MicrocontrollerScript</Script>
 
     <Mesh name="microcontroller-mesh">
         <Position x="0.0" y="0.0" z="0.0" />

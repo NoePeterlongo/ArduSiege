@@ -1,4 +1,4 @@
-// LuaApi - ScriptingMod M2 (Besiege): the sensors API exposed to Lua.
+// LuaApi - ArduSiege M2 (Besiege): the sensors API exposed to Lua.
 //
 // Three IUserDataType wrappers (pattern validated at M0: zero reflection -
 // AGENTS.md golden rules) :
@@ -18,7 +18,7 @@ using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 using UnityEngine;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     /// <summary>
     /// Builds + installs the Lua globals (self, machine, input) on a Script
@@ -259,7 +259,6 @@ namespace ScriptingMod
             {
                 return null;
             }
-            MKey byKey = null;
             MKey byDisplay = null;
             foreach (MapperType mt in bb.MapperTypes)
             {

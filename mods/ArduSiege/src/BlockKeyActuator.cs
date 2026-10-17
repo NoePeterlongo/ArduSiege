@@ -19,7 +19,7 @@
 using System.Collections.Generic;
 using MoonSharp.Interpreter;
 
-namespace ScriptingMod
+namespace ArduSiege
 {
     internal class BlockKeyActuator
     {

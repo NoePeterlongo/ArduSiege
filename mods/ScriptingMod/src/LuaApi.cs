@@ -27,14 +27,15 @@ namespace ScriptingMod
     /// </summary>
     internal static class LuaApi
     {
-        internal static void Install(Script lua, BlockScript controller, BlockKeyActuator keys)
+        internal static void Install(Script lua, BlockScript controller, BlockKeyActuator keys,
+            BlockAngleRamps ramps)
         {
             Modding.Blocks.Block selfBlock = Modding.Blocks.Block.From(controller);
             if (selfBlock != null)
             {
-                lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock, keys)));
+                lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock, keys, ramps)));
             }
-            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, keys)));
+            lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, keys, ramps)));
             lua.Globals.Set("input", UserData.Create(new LuaInputApi()));
         }
 
@@ -64,16 +65,21 @@ namespace ScriptingMod
         // actionnement direct des touches du bloc (null en contexte console)
         private readonly BlockKeyActuator m_Keys;
 
+        // rampes d'angle cible (null en contexte console)
+        private readonly BlockAngleRamps m_Ramps;
+
         internal LuaBlockApi(Modding.Blocks.Block block)
         {
             m_Block = block;
             m_Keys = null;
+            m_Ramps = null;
         }
 
-        internal LuaBlockApi(Modding.Blocks.Block block, BlockKeyActuator keys)
+        internal LuaBlockApi(Modding.Blocks.Block block, BlockKeyActuator keys, BlockAngleRamps ramps)
         {
             m_Block = block;
             m_Keys = keys;
+            m_Ramps = ramps;
         }
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
@@ -414,38 +420,43 @@ namespace ScriptingMod
         }
 
         /// <summary>
-        /// b:set_angle(degrees) : commande l'angle cible d'un bloc orientable
-        /// (SteeringWheel = charniere ; RudderController = gouvernail). Active au
-        /// passage le mode "angle cible" (champ public, reinitialise a la prochaine sim).
+        /// b:set_angle(degres) : commande l'angle cible d'un bloc orientable
+        /// (SteeringWheel = charniere ; RudderController = gouvernail), en RAMPE a
+        /// la vitesse du bloc (slider rotation-speed — transparent : meme vitesse que
+        /// la touche). b:set_angle(degres, v_max) : surcharge en degres/seconde.
+        /// Le mode "angle cible" est active au passage (reinitialise a la prochaine sim).
         /// </summary>
         private DynValue SetAngleCommand(Script script, CallbackArguments args)
         {
-            double? value = null;
+            if (m_Ramps == null)
+            {
+                throw new ScriptRuntimeException("actionnement direct indisponible dans ce contexte (hors controleur)");
+            }
+            double? angle = null;
+            double? vMax = null;
             for (int i = 0; i < args.Count; i++)
             {
                 if (args[i].Type == MoonSharp.Interpreter.DataType.Number)
                 {
-                    value = args[i].Number;
-                    break;
+                    if (!angle.HasValue)
+                    {
+                        angle = args[i].Number;
+                    }
+                    else if (!vMax.HasValue)
+                    {
+                        vMax = args[i].Number;
+                    }
                 }
             }
-            if (!value.HasValue)
+            if (!angle.HasValue)
             {
-                throw new ScriptRuntimeException("b:set_angle(degres) : nombre requis, ex. b:set_angle(45)");
+                throw new ScriptRuntimeException("b:set_angle(degres[, v_max]) : ex. b:set_angle(45)"
+                    + " — rampe a la vitesse du bloc ; b:set_angle(45, 30) : 30 degres/seconde");
             }
             BlockBehaviour bb = m_Block.InternalObject;
-            SteeringWheel sw = bb as SteeringWheel;
-            if (sw != null)
+            if (bb is SteeringWheel || bb is RudderController)
             {
-                sw.targetAngleMode = true;
-                sw.AngleToBe = (float)value.Value;
-                return DynValue.Nil;
-            }
-            RudderController rudder = bb as RudderController;
-            if (rudder != null)
-            {
-                rudder.targetAngleMode = true;
-                rudder.AngleToBe = (float)value.Value;
+                m_Ramps.Set(bb, (float)angle.Value, (float)(vMax ?? 0.0));
                 return DynValue.Nil;
             }
             throw new ScriptRuntimeException("set_angle : bloc non orientable (charniere ou gouvernail uniquement)");
@@ -543,19 +554,23 @@ namespace ScriptingMod
     {
         private readonly Modding.Blocks.PlayerMachine m_Machine;
 
-        // actionnement direct : registre passe aux wrappers de blocs (null en console)
+        // actionnement direct : registres passes aux wrappers de blocs (null en console)
         private readonly BlockKeyActuator m_Keys;
+        private readonly BlockAngleRamps m_Ramps;
 
         internal LuaMachineApi(Modding.Blocks.PlayerMachine machine)
         {
             m_Machine = machine;
             m_Keys = null;
+            m_Ramps = null;
         }
 
-        internal LuaMachineApi(Modding.Blocks.PlayerMachine machine, BlockKeyActuator keys)
+        internal LuaMachineApi(Modding.Blocks.PlayerMachine machine, BlockKeyActuator keys,
+            BlockAngleRamps ramps)
         {
             m_Machine = machine;
             m_Keys = keys;
+            m_Ramps = ramps;
         }
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
@@ -649,7 +664,7 @@ namespace ScriptingMod
                 if (found)
                 {
                     n++;
-                    table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys)));
+                    table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys, m_Ramps)));
                 }
             }
             return result;
@@ -688,7 +703,7 @@ namespace ScriptingMod
                     }
                 }
                 n++;
-                table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys)));
+                table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys, m_Ramps)));
             }
 
             return result;

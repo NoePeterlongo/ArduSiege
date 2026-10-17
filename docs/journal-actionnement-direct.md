@@ -99,6 +99,25 @@ MoonSharp (`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
 - **`b.toggles` / `b:toggle(nom)`** : toggles du mapper (`MToggle.IsActive`).
 - Équivalent ilyshk4 : `hinge.set_steering(45)` — même mécanisme (`AngleToBe`).
 
+## Rampe d'angle (retour joueur n°3 : « set_angle casse la machine »)
+
+- **Symptôme** : `set_angle` fixe l'angle réel instantanément — une variation
+  trop grande casse la machine (le joint applique `targetRotation` en direct,
+  raideur du ressort). Première idée : paramètre v_max + rampe côté mod.
+- **Décision joueur (plus élégante)** : le bloc A DÉJÀ un paramètre de vitesse —
+  le slider `rotation-speed` (clé `rotation-speed`, decomp SteeringWheel l.117).
+  En mode touche, le bloc déplace lui-même sa cible de `totalSpeed` par tick
+  (l.373 : `targetAngle += input * totalSpeed`). Réutilisé **transparemment** :
+  - `b:set_angle(a)` : rampe à la vitesse du bloc (`totalSpeed` public pour la
+    charnière ; formule `fixedDeltaTime * 100 * targetAngleSpeed * speedSlider`
+    reconstruite pour le gouvernail, l.331) — même vitesse que la touche ;
+  - `b:set_angle(a, v_max)` : surcharge explicite en degrés/seconde ;
+  - slider à 0 : la rampe attend (identique au comportement touche).
+- Implémentation : `BlockAngleRamps` — registre par contrôleur, avancé au tick
+  (`SimulateFixedUpdateHost`), purgé à l'arrêt ; `targetAngleMode` activé à la
+  première écriture (non persistant : blocs réinstanciés à chaque sim).
+- Le mode instantané disparaît (c'était le comportement cassant).
+
 ## Test joueur (attendu)
 
 1. Relancer le jeu → `pilotage.lua installe (SMDEMO v1)` ;

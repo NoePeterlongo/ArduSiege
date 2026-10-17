@@ -42,6 +42,7 @@ namespace ScriptingMod
         private WatchdogDebugger m_Watchdog;
         private LuaActuatorApi m_Actuator;
         private BlockKeyActuator m_KeyActuator;
+        private BlockAngleRamps m_AngleRamps;
         private int m_TickCount;
         private string m_ScriptName;
 
@@ -210,6 +211,7 @@ namespace ScriptingMod
             m_Watchdog = null;
             m_Actuator = null;
             m_KeyActuator = null;
+            m_AngleRamps = null;
 
             if (!m_ActiveToggle.IsActive)
             {
@@ -252,10 +254,11 @@ namespace ScriptingMod
                 // actionnement direct : b:key/forward/backward/spin (sans variables) —
                 // cree AVANT Install : les wrappers de blocs le portent.
                 m_KeyActuator = new BlockKeyActuator();
+                m_AngleRamps = new BlockAngleRamps();
 
                 // M2 : API capteurs (self, machine, input) — avant DoString pour
                 // que le script puisse les utiliser des on_sim_start.
-                LuaApi.Install(m_Lua, this, m_KeyActuator);
+                LuaApi.Install(m_Lua, this, m_KeyActuator, m_AngleRamps);
 
                 // M3 : API actionneurs — emulate(canal, etat)
                 m_Actuator = new LuaActuatorApi(this);
@@ -294,6 +297,10 @@ namespace ScriptingMod
             {
                 m_Watchdog.Reset();          // budget PAR TICK (et non par simulation)
                 CallIfDefined("on_tick");
+                if (m_AngleRamps != null)
+                {
+                    m_AngleRamps.Tick(Time.fixedDeltaTime);   // rampes d'angle cible
+                }
             }
             catch (WatchdogBudgetExceededException wex)
             {
@@ -326,6 +333,13 @@ namespace ScriptingMod
             {
                 m_KeyActuator.ResetAll();
                 m_KeyActuator = null;
+            }
+
+            // rampes d'angle : purge (les cibles restent ou elles sont)
+            if (m_AngleRamps != null)
+            {
+                m_AngleRamps.Clear();
+                m_AngleRamps = null;
             }
 
             m_Lua = null;

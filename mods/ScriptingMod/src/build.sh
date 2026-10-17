@@ -23,6 +23,7 @@ mcs -nostdlib -noconfig -target:library -optimize+ \
     -r:/work/mods/ScriptingMod/ScriptingMod/MoonSharp.Interpreter.dll \
     /work/mods/ScriptingMod/src/WatchdogDebugger.cs \
     /work/mods/ScriptingMod/src/BlockKeyActuator.cs \
+    /work/mods/ScriptingMod/src/BlockAngleRamps.cs \
     /work/mods/ScriptingMod/src/LuaApi.cs \
     /work/mods/ScriptingMod/src/LuaActuators.cs \
     /work/mods/ScriptingMod/src/ScriptingModEntryPoint.cs \

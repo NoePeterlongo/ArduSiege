@@ -163,7 +163,8 @@ Actuator state:
 | Expression | Meaning |
 |---|---|
 | `b.angle_target` | steering hinge / rudder: commanded target angle (degrees) |
-| `b:set_angle(45)` | steering hinge / rudder: command the target angle (enables target-angle mode for the run) |
+| `b:set_angle(45)` | steering hinge / rudder: command the target angle — ramps at the block's **rotation speed** slider (the same speed as holding its key), so large moves do not snap the machine |
+| `b:set_angle(45, 30)` | same, overriding the ramp speed (degrees per second) |
 | `b.toggles` | table of the block's toggles, name → state |
 | `b:toggle("automatic")` | read one toggle's state |
 

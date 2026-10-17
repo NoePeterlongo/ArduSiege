@@ -42,13 +42,14 @@ sg docker -c "docker run --rm --user \$(id -u):\$(id -g) -e HOME=/tmp -e DOTNET_
 ## Structure
 
 ```
+README.md                         guide joueur (EN) — présentation, installation,
+                                  concepts, API exhaustive, compilation, crédits
 Besiege/                          jeu (gitignoré)
 docs/
   modding-doc.txt                 doc officielle extraite du PDF inclus au jeu (référence)
   etude-faisabilite-scripting.md  étude avant-projet du mod de scripting
   workflow-scripting.md           décisions D1-D8 (persistance, sandbox, workflow)
   journal-*.md                    journaux des jalons M0-M5 et expériences
-  user-guide.md                   guide joueur (EN) — source de vérité de l'API
 mods/ScriptingMod/
   ScriptingMod/                   ← dossier chargé par le jeu (Mod.xml + DLLs + blocs)
   src/                            code source + build.sh

@@ -86,25 +86,18 @@ MoonSharp (`PARSE+RUN OK`). Build OK ; scan propre (`MemberInfo::` 0).
   doit être validée LIVE vs BUILD — les propriétés de `Machine` peuvent n'être
   que construction-side (buildingMachine) ; les `Ref*` sont la source sim.
 
-## État des actionneurs (lecture)
+## État des actionneurs (lecture) — révision joueur
 
-- Question joueur : lire la position angulaire d'une charnière, ou l'état d'un
-  actionneur. **Le jeu n'expose aucun état interne** (même l'Anglometer vanilla
-  calcule par géométrie de transforms) — sauf la cible :
-  `SteeringWheel.AngleToBe` (public, degrés).
-- **`b.angle`** : angle ACTUEL de la charnière — rotation relative entre le GO du
-  bloc et le rigidbody connecté (`ConfigurableJoint` du GO, `connectedBody`
-  public ; axe `SteeringWheel.axis` public), signée autour de l'axe, calculée par
-  directions de référence projetées ⊥ axe. Sémantique : 0° = position **au
-  montage** (les blocs s'alignent au placement) — les montages exotiques (face
-  non alignée) peuvent avoir un offset constant, documenté.
-- **`b.angle_target`** : `AngleToBe` (commande envoyée au joint). Le setter est
-  public → une future écriture (`set_steering`, cf. ilyshk4) est possible.
-- **`b.toggles` / `b:toggle(nom)`** : toggles du mapper (`MToggle.IsActive`),
-  lisible — « automatic » d'un moteur, etc.
-- Piston/spring : pas d'état dédié exposé par le jeu — les sliders (`b.sliders`)
-  couvrent les paramètres ; l'état géométrique se déduit de
-  `position`/`rotation` des blocs pilotés.
+- 1re tentative : `b.angle` calculé par géométrie (rotation relative GO/rigidbody
+  autour de l'axe) — **jugé peu fiable au test joueur** (offsets selon montage),
+  retiré.
+- Retenu : **`b.angle_target`** (`AngleToBe`, public, degres — la cible commandée ;
+  généralisé à `RudderController`) et **`b:set_angle(v)`** — écrit la cible et
+  force `targetAngleMode` (champ public du composant ; non persistant car les blocs
+  se réinstancient à chaque sim). L'angle réel n'a pas de source interne dans le jeu
+  (l'Anglometer calcule par géométrie) — la cible sert de retour.
+- **`b.toggles` / `b:toggle(nom)`** : toggles du mapper (`MToggle.IsActive`).
+- Équivalent ilyshk4 : `hinge.set_steering(45)` — même mécanisme (`AngleToBe`).
 
 ## Test joueur (attendu)
 

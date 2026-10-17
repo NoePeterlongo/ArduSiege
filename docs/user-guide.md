@@ -162,10 +162,14 @@ Actuator state:
 
 | Expression | Meaning |
 |---|---|
-| `b.angle` | steering hinge: **current** angle in degrees (0 = as built); nil for other blocks |
-| `b.angle_target` | steering hinge: commanded target angle (`AngleToBe`) |
+| `b.angle_target` | steering hinge / rudder: commanded target angle (degrees) |
+| `b:set_angle(45)` | steering hinge / rudder: command the target angle (enables target-angle mode for the run) |
 | `b.toggles` | table of the block's toggles, name → state |
 | `b:toggle("automatic")` | read one toggle's state |
+
+The hinge's *actual* angle is not exposed by the game (no internal state; the
+vanilla Anglometer computes it geometrically) — use `angle_target` as feedback
+of your command, or derive geometry from block `position`/`rotation`.
 
 Keyboard: `input:is_held("P")`, `input:is_pressed("Space")`,
 `input:is_released("Mouse0")` — Unity `KeyCode` names.

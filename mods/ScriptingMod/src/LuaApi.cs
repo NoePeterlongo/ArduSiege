@@ -148,10 +148,10 @@ namespace ScriptingMod
                 case "action":
                     return DynValue.NewCallback((ctx, args) => ActionCommand(script, args), "action");
                 // --- etats des actionneurs : angle de charniere, toggles ---
-                case "angle":
-                    return BlockAngle(script, bb);
                 case "angle_target":
                     return BlockAngleTarget(bb);
+                case "set_angle":
+                    return DynValue.NewCallback((ctx, args) => SetAngleCommand(script, args), "set_angle");
                 case "toggles":
                     return BuildTogglesTable(script, bb);
                 case "toggle":
@@ -396,73 +396,61 @@ namespace ScriptingMod
         }
 
         // --- etats des actionneurs ---
-        // Angle de charniere (SteeringWheel, BlockType.SteeringHinge) : le jeu
-        // n'expose PAS d'angle interne (l'Anglometer lui-meme calcule par geometrie).
-        // b.angle = rotation relative entre le GO de la charniere et le rigidbody
-        // connecte (ConfigurableJoint du bloc), autour de l'axe sw.axis —
-        // 0 degres = position au montage. b.angle_target = AngleToBe (commande).
+        // Angle de charniere : le jeu n'expose que la CIBLE (AngleToBe, degres) —
+        // l'angle reel n'a pas de source interne (l'Anglometer calcule par geometrie).
+        // b:set_angle(v) force targetAngleMode (champ public du composant, non
+        // persistant : les blocs se reinstancient a chaque sim) et commande la cible.
 
-        private static UnityEngine.Vector3 Perp(UnityEngine.Vector3 v, UnityEngine.Vector3 axis)
-        {
-            return v - UnityEngine.Vector3.Dot(v, axis) * axis;
-        }
-
-        private static float SignedAngleAround(UnityEngine.Vector3 from,
-            UnityEngine.Vector3 to, UnityEngine.Vector3 axis)
-        {
-            float raw = UnityEngine.Vector3.Angle(from, to);       // 0..180
-            float sign = (UnityEngine.Vector3.Dot(UnityEngine.Vector3.Cross(from, to), axis) >= 0f) ? 1f : -1f;
-            return raw * sign;
-        }
-
-        /// <summary>b.angle : angle ACTUEL de la charniere (degres, 0 = au montage).</summary>
-        private DynValue BlockAngle(Script script, BlockBehaviour bb)
-        {
-            SteeringWheel sw = bb as SteeringWheel;
-            if (sw == null)
-            {
-                return DynValue.Nil;    // pas une charniere
-            }
-            UnityEngine.ConfigurableJoint joint = bb.GetComponent<UnityEngine.ConfigurableJoint>();
-            UnityEngine.Rigidbody rb = bb.Rigidbody;
-            if (joint == null || joint.connectedBody == null || rb == null)
-            {
-                return DynValue.Nil;    // pas (encore) articulee
-            }
-            UnityEngine.Vector3 axis = bb.transform.TransformDirection(sw.axis);
-            if (axis.sqrMagnitude < 1e-06f)
-            {
-                return DynValue.Nil;
-            }
-            axis.Normalize();
-
-            // directions de reference perpendiculaires a l'axe, meme nom pour les
-            // deux frames : up (repli forward si aligne a l'axe)
-            UnityEngine.Vector3 refA = Perp(bb.transform.up, axis);
-            if (refA.sqrMagnitude < 1e-06f)
-            {
-                refA = Perp(bb.transform.forward, axis);
-            }
-            UnityEngine.Vector3 refB = Perp(joint.connectedBody.transform.up, axis);
-            if (refB.sqrMagnitude < 1e-06f)
-            {
-                refB = Perp(joint.connectedBody.transform.forward, axis);
-            }
-            if (refA.sqrMagnitude < 1e-06f || refB.sqrMagnitude < 1e-06f)
-            {
-                return DynValue.Nil;
-            }
-            return DynValue.NewNumber(SignedAngleAround(refA.normalized, refB.normalized, axis));
-        }
-
-        /// <summary>b.angle_target : angle COMMANDE de la charniere (AngleToBe, degres).</summary>
+        /// <summary>b.angle_target : angle COMMANDE (degres) — charniere/gouvernail.</summary>
         private static DynValue BlockAngleTarget(BlockBehaviour bb)
         {
             SteeringWheel sw = bb as SteeringWheel;
-            return (sw == null) ? DynValue.Nil : DynValue.NewNumber(sw.AngleToBe);
+            if (sw != null)
+            {
+                return DynValue.NewNumber(sw.AngleToBe);
+            }
+            RudderController rudder = bb as RudderController;
+            return (rudder == null) ? DynValue.Nil : DynValue.NewNumber(rudder.AngleToBe);
         }
 
-        /// <summary>b.toggles : table nom -> etat des toggles du bloc.</summary>
+        /// <summary>
+        /// b:set_angle(degrees) : commande l'angle cible d'un bloc orientable
+        /// (SteeringWheel = charniere ; RudderController = gouvernail). Active au
+        /// passage le mode "angle cible" (champ public, reinitialise a la prochaine sim).
+        /// </summary>
+        private DynValue SetAngleCommand(Script script, CallbackArguments args)
+        {
+            double? value = null;
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (args[i].Type == MoonSharp.Interpreter.DataType.Number)
+                {
+                    value = args[i].Number;
+                    break;
+                }
+            }
+            if (!value.HasValue)
+            {
+                throw new ScriptRuntimeException("b:set_angle(degres) : nombre requis, ex. b:set_angle(45)");
+            }
+            BlockBehaviour bb = m_Block.InternalObject;
+            SteeringWheel sw = bb as SteeringWheel;
+            if (sw != null)
+            {
+                sw.targetAngleMode = true;
+                sw.AngleToBe = (float)value.Value;
+                return DynValue.Nil;
+            }
+            RudderController rudder = bb as RudderController;
+            if (rudder != null)
+            {
+                rudder.targetAngleMode = true;
+                rudder.AngleToBe = (float)value.Value;
+                return DynValue.Nil;
+            }
+            throw new ScriptRuntimeException("set_angle : bloc non orientable (charniere ou gouvernail uniquement)");
+        }
+
         private static DynValue BuildTogglesTable(Script script, BlockBehaviour bb)
         {
             DynValue result = DynValue.NewTable(script);

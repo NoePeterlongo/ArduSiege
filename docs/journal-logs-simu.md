@@ -29,16 +29,28 @@
   `LuaLogApi` wrapper (`IUserDataType`).
 - `MicrocontrollerScript`: logger created at runtime mount, passed through
   `LuaApi.Install` (global `log`), closed in `OnSimulateStop` BEFORE teardown.
-- Demo `logger.lua` (SMDEMO v1): one CSV row per second (position, speed) —
+- Demo `logger.lua` (SMDEMO v2): one CSV row per second (position, speed) —
   validated by the MoonSharp parse harness (PARSE+RUN OK).
 - User guide: new section 7 "Logging data (per simulation)"; `script logs` in
   the command table.
 - Build OK; static scan clean (`MemberInfo::` 0, `Globalization` present in IL
   but not on the blacklist — definitive verdict at in-game load).
 
+
+## Revision (player feedback): format-agnostic
+
+- The forced `.csv` extension betrayed a format bias. Now **agnostic**:
+  - `log.ext` (settable, before first write, letters/digits only, default
+    "txt") — the file is named `Logs/<script>_<timestamp>.<ext>` ;
+  - `log.write` = raw lines (any format), `log.row` = generic
+    values-joined-by-separator (nothing CSV-specific in the API itself) ;
+  - `log.ext` after file creation is ignored silently (the file exists).
+- Demo `logger.lua` bumped to SMDEMO v2: sets `log.ext = "csv"` explicitly,
+  teaching the pattern.
+
 ## Player test (expected)
 
-1. Launch the game -> `logger.lua installed (SMDEMO v1)`;
+1. Launch the game -> `logger.lua installed/updated (SMDEMO v2)`;
 2. simulate any machine with script `logger` -> console: `log opened: Logs/...`;
 3. let it run, stop the sim -> console: `log written: ... (N lines, X KiB)`;
 4. `script logs` -> open the CSV (comma decimal separators even on FR locale);

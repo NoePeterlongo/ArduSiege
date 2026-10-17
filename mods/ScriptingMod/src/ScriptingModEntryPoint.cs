@@ -117,7 +117,7 @@ namespace ScriptingMod
                 WriteDemoIfOutdated("actionneurs.lua", 3, ACTIONNEURS_LUA);
                 WriteDemoIfOutdated("noms.lua", 4, NOMS_LUA);
                 WriteDemoIfOutdated("pilotage.lua", 3, PILOTAGE_LUA);
-                WriteDemoIfOutdated("logger.lua", 1, LOGGER_LUA);
+                WriteDemoIfOutdated("logger.lua", 2, LOGGER_LUA);
             }
             catch (Exception ex)
             {
@@ -358,15 +358,17 @@ namespace ScriptingMod
             "end\n";
 
 
-        // logger.lua demo (SMDEMO v1): per-simulation CSV log
+        // logger.lua demo (SMDEMO v2): per-simulation log file (format-agnostic)
         private const string LOGGER_LUA =
-            "-- logger.lua (SMDEMO v1): per-simulation CSV log\n" +
-            "-- Logs one CSV row per second (position, velocity) to Logs/<name>_<time>.csv.\n" +
-            "-- The file is created on the first log.row call, flushed regularly and\n" +
-            "-- closed automatically at simulation stop. 'script logs' opens the folder.\n" +
+            "-- logger.lua (SMDEMO v2): per-simulation log file (format-agnostic)\n" +
+            "-- One row per second (position, speed). The file is created on the first\n" +
+            "-- write, flushed regularly and closed at simulation stop. The content is\n" +
+            "-- yours: log.write for raw lines, log.row for joined values, log.ext for\n" +
+            "-- the extension. 'script logs' opens the folder.\n" +
             "local ticks = 0\n" +
             "\n" +
             "function on_sim_start()\n" +
+            "    log.ext = \"csv\"   -- any extension: the file is whatever you write\n" +
             "    log.row(\"t\", \"pos_x\", \"pos_y\", \"pos_z\", \"speed\")   -- header\n" +
             "    print(\"logging to: \" .. (log.path or \"(created on first row)\"))\n" +
             "end\n" +

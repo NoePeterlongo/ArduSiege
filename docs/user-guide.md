@@ -234,19 +234,21 @@ but remain handy: they persist in the machine save natively and group blocks.
 
 ## 7. Logging data (per simulation)
 
-`log` writes structured data to a file — instrument your control loops, plot
-them offline:
+`log` writes a file per simulation — its **content and format are entirely
+yours**: raw lines, joined values, any extension:
 
 ```lua
-log.row("t", "pos_y", "speed")          -- header (CSV, one file per simulation)
-log.row(ticks / 50, p.y, speed)         -- one row per call, any values
-log.write("custom raw line")           -- free-form lines
-log.path                               -- file path once created (nil before)
-log.separator = ";"                    -- column separator (default ",")
+log.ext = "csv"                        -- extension of your choice (default "txt")
+log.row("t", "pos_y", "speed")          -- values joined by log.separator
+log.row(ticks / 50, p.y, speed)         -- any values, any columns
+log.write("{ \"t\": 1, \"v\": 2.5 },")  -- raw line: JSON, text, whatever
+log.separator = ";"                     -- join separator (default ",")
+log.path                                -- file path once created (nil before)
 ```
 
-- one log file per simulation at most: `Logs/<script>_<timestamp>.csv` in the
-  mod's data folder, created on the **first** write (an idle sim logs nothing) ;
+- one log file per simulation at most: `Logs/<script>_<timestamp>.<ext>` in the
+  mod's data folder, created on the **first** write (an idle sim logs nothing);
+  `log.ext` must be set **before** the first write ;
 - flushed every ~200 lines and automatically **closed at simulation stop** —
   even if the script errored or never called anything else ;
 - numbers are formatted locale-invariant (French Windows does not break your

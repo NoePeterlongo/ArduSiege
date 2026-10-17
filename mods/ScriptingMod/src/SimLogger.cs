@@ -1,13 +1,16 @@
 // SimLogger - per-simulation log files (logs-simu branch).
 //
-// Scripts need to export structured data (CSV or other) for offline analysis -
-// instrumenting a control loop without it is guesswork. The Lua sandbox has no
-// io: all file access goes through C#/ModIO (TextWriter is whitelisted,
-// StreamWriter is NOT: buffer in memory + WriteAllText flushes).
+// Scripts need to export data for offline analysis - instrumenting a control
+// loop without it is guesswork. FORMAT-AGNOSTIC (player decision): the file
+// contains whatever the script writes - raw lines (log.write), values joined by
+// a configurable separator (log.row), the extension is the script's choice
+// (log.ext, default "txt"). The Lua sandbox has no io: all file access goes
+// through C#/ModIO (TextWriter is whitelisted, StreamWriter is NOT: buffer in
+// memory + WriteAllText flushes).
 //
 // Model (player decision): ONE log file per simulation at most.
 //   - the file is created lazily on the FIRST write (an idle sim logs nothing) ;
-//   - auto-named Logs/<script>_<timestamp>.csv in the mod's data folder ;
+//   - auto-named Logs/<script>_<timestamp>.<ext> in the mod's data folder ;
 //   - flushed every ~200 lines and at simulation stop (survives a kill) ;
 //   - 2 MB cap: past it, writes are refused with a console message (the watchdog
 //     bounds CPU; this bounds memory).
@@ -34,6 +37,7 @@ namespace ScriptingMod
         private readonly System.Text.StringBuilder m_Buffer = new System.Text.StringBuilder();
         private string m_Path;              // set on first write (lazy)
         private string m_Separator = ",";
+        private string m_Ext = "txt";       // format-agnostic extension
         private int m_Unflushed;
         private bool m_Full;
         private bool m_Closed;
@@ -56,6 +60,28 @@ namespace ScriptingMod
         internal string Path
         {
             get { return m_Path; }
+        }
+
+        /// <summary>log.ext - file extension, the script's choice (before first write).</summary>
+        internal string Ext
+        {
+            get { return m_Ext; }
+            set
+            {
+                if (m_Path != null || m_Closed)
+                {
+                    return;     // file already created: too late
+                }
+                string e = value == null ? "" : value.Trim().TrimStart('.').ToLower();
+                foreach (char c in e)
+                {
+                    if (!char.IsLetterOrDigit(c))
+                    {
+                        return;     // reject anything exotic silently
+                    }
+                }
+                m_Ext = (e.Length == 0) ? "txt" : e;
+            }
         }
 
         /// <summary>log.write(line) - appends one raw line.</summary>
@@ -140,7 +166,7 @@ namespace ScriptingMod
             {
                 Modding.ModIO.CreateDirectory(LOGS_DIR, data: true);
                 string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss", CultureInfo.InvariantCulture);
-                m_Path = LOGS_DIR + "/" + m_ScriptName + "_" + stamp + ".csv";
+                m_Path = LOGS_DIR + "/" + m_ScriptName + "_" + stamp + "." + m_Ext;
                 ModConsole.Log("[ScriptingMod] log opened: " + m_Path);
             }
             catch (Exception ex)
@@ -228,6 +254,8 @@ namespace ScriptingMod
                     return m_Logger.Path == null ? DynValue.Nil : DynValue.NewString(m_Logger.Path);
                 case "separator":
                     return DynValue.NewString(m_Logger.Separator);
+                case "ext":
+                    return DynValue.NewString(m_Logger.Ext);
                 default:
                     return null;
             }
@@ -251,15 +279,22 @@ namespace ScriptingMod
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)
         {
-            // log.separator = ";"
-            if (index.Type == MoonSharp.Interpreter.DataType.String
-                && index.String == "separator"
-                && value.Type == MoonSharp.Interpreter.DataType.String)
+            if (index.Type != MoonSharp.Interpreter.DataType.String
+                || value.Type != MoonSharp.Interpreter.DataType.String)
             {
-                m_Logger.Separator = value.String;
-                return true;
+                return false;
             }
-            return false;
+            switch (index.String)
+            {
+                case "separator":
+                    m_Logger.Separator = value.String;
+                    return true;
+                case "ext":
+                    m_Logger.Ext = value.String;   // ignored once the file exists
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         public DynValue MetaIndex(Script script, string metaname)

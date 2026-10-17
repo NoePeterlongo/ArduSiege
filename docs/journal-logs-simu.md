@@ -1,8 +1,14 @@
 # Journal logs-simu — per-simulation log files
 
-> Branch `logs-simu` (post-English-switch). Player need: export structured data
-> (CSV or other) from scripts to analyze control loops offline. One log file
-> per simulation at most.
+> Branch `logs-simu`. Player need: export structured data (CSV or other) from
+> scripts to analyze control loops offline. One log file per simulation at most.
+
+## Status: DONE (validated in game — 2026-10-17)
+
+Full flow validated by the player: `logger.lua` (SMDEMO v2) opens the log on the
+first row, flushes during the run, writes the summary at sim stop; `script logs`
+opens the folder; CSV decimals use dots on a French locale. Format-agnostic
+revision applied (`log.ext`, raw `log.write`). No issues found.
 
 ## Design
 
@@ -57,4 +63,4 @@
 5. idle sim (script that never logs) -> no file created;
 6. a script that errors mid-run -> log still written at stop.
 
-*(to be completed: results)*
+**Results: ALL PASS** (see status above).

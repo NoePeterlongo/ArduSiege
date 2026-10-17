@@ -15,3 +15,5 @@ tools/moonsharp-gen/obj/
 
 # Sources amont MoonSharp (telechargees par moonsharp-build.sh --regen)
 third-party/.upstream/
+
+.vscode/*

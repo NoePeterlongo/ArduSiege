@@ -23,8 +23,11 @@ namespace ScriptingMod
 {
     public class MicrocontrollerScript : BlockScript
     {
-        // Deliberately low budget for M1 (M0: 50M = ~17 s freeze; see journal M0 step 9).
-        private const long WATCHDOG_BUDGET = 1000000L;
+        // Per-tick instruction budget (M5: configurable via the `watchdog budget`
+        // console command; default 1M - deliberately low: M0 measured 50M = ~17 s
+        // freeze, see journal M0 step 9). Applies to runtimes mounted AFTER the
+        // change; not persisted across game restarts.
+        internal static long WatchdogBudgetPerTick = 1000000L;
 
         private const string SCRIPTS_DIR = "Scripts";
 
@@ -250,7 +253,7 @@ namespace ScriptingMod
                         return DynValue.Nil;
                     }, "print"));
 
-                m_Watchdog = new WatchdogDebugger(WATCHDOG_BUDGET);
+                m_Watchdog = new WatchdogDebugger(WatchdogBudgetPerTick);
                 m_Lua.AttachDebugger(m_Watchdog);
 
                 // direct actuation: b:key/forward/backward/spin (no variables) -

@@ -1,0 +1,50 @@
+ScriptingMod - third-party notices
+==================================
+
+This mod embeds a trimmed build of MoonSharp (http://www.moonsharp.org),
+a Lua interpreter for .NET.
+
+  Upstream project : https://github.com/moonsharp-devs/moonsharp
+  Version          : v2.0.0.0 (commit 3154416e535ab96c0d52bf12e3e472985a1532f4)
+  License          : BSD 2-Clause License (full text below)
+  Modifications    : the optional CLR interop layer (System.Reflection based)
+                     was removed to comply with the Besiege mod loader's
+                     security scanner; an internally generated module
+                     registration file replaces the reflection-based one.
+                     Source of the trimmed build:
+                     third-party/moonsharp-trimmed/ in the project repository.
+
+This product also draws design inspiration from the "Lua Scripting Mod" by
+ilyshk4 (Steam Workshop 2383785201) - no code was copied.
+
+---------------------------------------------------------------------------
+MoonSharp - Copyright (c) 2014-2016, Marco Mastropaolo
+All rights reserved.
+
+Parts of the string library are based on the KopiLua project
+(https://github.com/NLua/KopiLua) Copyright (c) 2012 LoDC
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the {organization} nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

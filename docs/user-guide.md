@@ -58,6 +58,7 @@ start, the controller tells you in the console and does nothing for that run.
 | `lua "<code>"` | Run Lua in the active controller's context (or the sandbox if none) |
 | `bench [n]` | Micro-benchmark of the Lua engine |
 | `watchdog` | Test the infinite-loop protection (should be interrupted) |
+| `watchdog budget [n]` | Read/set the per-tick script instruction budget (default 1000000, applies to simulations started after the change) |
 
 ---
 

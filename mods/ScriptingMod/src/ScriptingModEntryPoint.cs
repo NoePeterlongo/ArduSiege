@@ -82,7 +82,8 @@ namespace ScriptingMod
             ModConsole.RegisterCommand("bench", BenchCommand,
                 "bench [n] - Lua micro-benchmark (n iterations, default 1,000,000)");
             ModConsole.RegisterCommand("watchdog", WatchdogCommand,
-                "watchdog - runs a Lua infinite loop: must be interrupted by the watchdog");
+                "watchdog - runs a Lua infinite loop: must be interrupted by the watchdog"
+                + " ; watchdog budget [n] - read/set the per-tick script budget");
 
             // M4: library (D1-ter: name only)
             ModConsole.RegisterCommand("script", ScriptCommand,
@@ -545,6 +546,11 @@ namespace ScriptingMod
 
         private void WatchdogCommand(string[] cmdArgs)
         {
+            if (cmdArgs.Length > 0 && cmdArgs[0] == "budget")
+            {
+                WatchdogBudgetCommand(cmdArgs);
+                return;
+            }
             ModConsole.Log("[watchdog] running `while true do end` - if the watchdog works, this message is followed by an interruption; otherwise the game freezes.");
 
             m_Watchdog.Reset();
@@ -563,6 +569,25 @@ namespace ScriptingMod
             {
                 ModConsole.Log("[watchdog] Interrupted by another exception type: " + ex.GetType().FullName + ": " + ex.Message);
             }
+        }
+
+        // --- M5: watchdog budget (per tick, applies to future runtime mounts) ---
+
+        private void WatchdogBudgetCommand(string[] cmdArgs)
+        {
+            if (cmdArgs.Length > 1)
+            {
+                long n;
+                if (!long.TryParse(cmdArgs[1], out n) || n < 10000L)
+                {
+                    ModConsole.Log("[watchdog] budget: positive integer >= 10000 expected, e.g. watchdog budget 500000");
+                    return;
+                }
+                MicrocontrollerScript.WatchdogBudgetPerTick = n;
+            }
+            ModConsole.Log("[watchdog] script budget: " + MicrocontrollerScript.WatchdogBudgetPerTick
+                + " VM instructions per tick (default 1000000) - applies to simulations"
+                + " started after this point; resets to the default on game restart");
         }
 
         // --- M4: `script` commands (library, D1-bis) ---

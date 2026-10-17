@@ -4,7 +4,18 @@
 > variables vanilla **optionnel** pour l'actionnement — `b:spin(true)` etc., sans
 > aucune liaison dans le mapper.
 
-## État : EN COURS (test joueur attendu)
+## État : TERMINÉ (validé en jeu — 2026-10-17)
+
+Cycle complet validé par le joueur : actions par nom UI (`forward`/`backward` sur
+moteur, `spin`/`contract`/`wind` sur les autres types), démo `pilotage.lua` v2,
+`b.actions`, toggles, `set_angle` en rampe transparente (slider rotation-speed,
+surcharge v_max), `angle_target` comme retour, `machine.up/forward/right`
+live (RefBlock) après le correctif des valeurs figées. Convention angles :
+degrés (documentée). Guide utilisateur EN mis à jour à chaque étape.
+Leçons durables : (1) bump SMDEMO obligatoire à chaque changement de contenu de
+démo ; (2) les propriétés "machine" de l'API vanilla peuvent être construction-only
+— les `Ref*` sont la source live ; (3) le jeu n'expose pas d'état d'actionneur —
+la cible oui (`AngleToBe`), l'état réel se déduit par géométrie (fragile).
 
 ## Mécanisme (vérifié au decomp)
 

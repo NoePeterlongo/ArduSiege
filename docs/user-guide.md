@@ -54,6 +54,7 @@ start, the controller tells you in the console and does nothing for that run.
 | `script show` | Per controller: script name, state, running or not |
 | `script reload [name]` | Re-read file(s) and hot-restart the script |
 | `script folder` | Open the library folder in the file explorer |
+| `script logs` | Open the per-simulation logs folder in the file explorer |
 | `lua "<code>"` | Run Lua in the active controller's context (or the sandbox if none) |
 | `bench [n]` | Micro-benchmark of the Lua engine |
 | `watchdog` | Test the infinite-loop protection (should be interrupted) |
@@ -231,7 +232,32 @@ but remain handy: they persist in the machine save natively and group blocks.
 
 ---
 
-## 7. Limits and notes
+## 7. Logging data (per simulation)
+
+`log` writes a file per simulation — its **content and format are entirely
+yours**: raw lines, joined values, any extension:
+
+```lua
+log.ext = "csv"                        -- extension of your choice (default "txt")
+log.row("t", "pos_y", "speed")          -- values joined by log.separator
+log.row(ticks / 50, p.y, speed)         -- any values, any columns
+log.write("{ \"t\": 1, \"v\": 2.5 },")  -- raw line: JSON, text, whatever
+log.separator = ";"                     -- join separator (default ",")
+log.path                                -- file path once created (nil before)
+```
+
+- one log file per simulation at most: `Logs/<script>_<timestamp>.<ext>` in the
+  mod's data folder, created on the **first** write (an idle sim logs nothing);
+  `log.ext` must be set **before** the first write ;
+- flushed every ~200 lines and automatically **closed at simulation stop** —
+  even if the script errored or never called anything else ;
+- numbers are formatted locale-invariant (French Windows does not break your
+  CSV decimals) ;
+- 2 MB cap per simulation: past it, further writes are refused with a console
+  message ;
+- `script logs` opens the log folder in the file explorer.
+
+## 8. Limits and notes
 
 - One script per Microcontroller; several controllers run independent
   scripts. Two scripts driving the same key/action add up — your
@@ -241,7 +267,7 @@ but remain handy: they persist in the machine save natively and group blocks.
   emulation system — keep one in the machine.
 - Missing script file → console message, controller idle for the run.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Meaning |
 |---|---|

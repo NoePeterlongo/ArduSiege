@@ -24,6 +24,7 @@ mcs -nostdlib -noconfig -target:library -optimize+ \
     /work/mods/ScriptingMod/src/WatchdogDebugger.cs \
     /work/mods/ScriptingMod/src/BlockKeyActuator.cs \
     /work/mods/ScriptingMod/src/BlockAngleRamps.cs \
+    /work/mods/ScriptingMod/src/SimLogger.cs \
     /work/mods/ScriptingMod/src/LuaApi.cs \
     /work/mods/ScriptingMod/src/LuaActuators.cs \
     /work/mods/ScriptingMod/src/ScriptingModEntryPoint.cs \

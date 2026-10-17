@@ -43,6 +43,7 @@ namespace ScriptingMod
         private LuaActuatorApi m_Actuator;
         private BlockKeyActuator m_KeyActuator;
         private BlockAngleRamps m_AngleRamps;
+        private SimLogger m_Logger;
         private int m_TickCount;
         private string m_ScriptName;
 
@@ -212,6 +213,7 @@ namespace ScriptingMod
             m_Actuator = null;
             m_KeyActuator = null;
             m_AngleRamps = null;
+            m_Logger = null;
 
             if (!m_ActiveToggle.IsActive)
             {
@@ -255,10 +257,11 @@ namespace ScriptingMod
                 // created BEFORE Install: the block wrappers carry it.
                 m_KeyActuator = new BlockKeyActuator();
                 m_AngleRamps = new BlockAngleRamps();
+                m_Logger = new SimLogger(m_ScriptName);
 
                 // M2: sensors API (self, machine, input) - before DoString so the
                 // script can use them from on_sim_start.
-                LuaApi.Install(m_Lua, this, m_KeyActuator, m_AngleRamps);
+                LuaApi.Install(m_Lua, this, m_KeyActuator, m_AngleRamps, m_Logger);
 
                 // M3: actuators API - emulate(channel, state)
                 m_Actuator = new LuaActuatorApi(this);
@@ -340,6 +343,13 @@ namespace ScriptingMod
             {
                 m_AngleRamps.Clear();
                 m_AngleRamps = null;
+            }
+
+            // per-simulation log: final flush + summary (even on script error)
+            if (m_Logger != null)
+            {
+                m_Logger.Close();
+                m_Logger = null;
             }
 
             m_Lua = null;

@@ -28,7 +28,7 @@ namespace ScriptingMod
     internal static class LuaApi
     {
         internal static void Install(Script lua, BlockScript controller, BlockKeyActuator keys,
-            BlockAngleRamps ramps)
+            BlockAngleRamps ramps, SimLogger logger)
         {
             Modding.Blocks.Block selfBlock = Modding.Blocks.Block.From(controller);
             if (selfBlock != null)
@@ -37,6 +37,7 @@ namespace ScriptingMod
             }
             lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, keys, ramps)));
             lua.Globals.Set("input", UserData.Create(new LuaInputApi()));
+            lua.Globals.Set("log", UserData.Create(new LuaLogApi(logger)));
         }
 
         // --- helpers partages ---

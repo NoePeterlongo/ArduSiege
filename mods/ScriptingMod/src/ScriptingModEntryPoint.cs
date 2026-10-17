@@ -86,7 +86,7 @@ namespace ScriptingMod
 
             // M4: library (D1-ter: name only)
             ModConsole.RegisterCommand("script", ScriptCommand,
-                "script list|show|reload [name]|folder - script library");
+                "script list|show|reload [name]|folder|logs - script library and logs");
 
             // M4: refresh the Microcontrollers' menu when a mapper opens
             // (new scripts visible without restarting the level).
@@ -117,6 +117,7 @@ namespace ScriptingMod
                 WriteDemoIfOutdated("actionneurs.lua", 3, ACTIONNEURS_LUA);
                 WriteDemoIfOutdated("noms.lua", 4, NOMS_LUA);
                 WriteDemoIfOutdated("pilotage.lua", 3, PILOTAGE_LUA);
+                WriteDemoIfOutdated("logger.lua", 1, LOGGER_LUA);
             }
             catch (Exception ex)
             {
@@ -357,6 +358,32 @@ namespace ScriptingMod
             "end\n";
 
 
+        // logger.lua demo (SMDEMO v1): per-simulation CSV log
+        private const string LOGGER_LUA =
+            "-- logger.lua (SMDEMO v1): per-simulation CSV log\n" +
+            "-- Logs one CSV row per second (position, velocity) to Logs/<name>_<time>.csv.\n" +
+            "-- The file is created on the first log.row call, flushed regularly and\n" +
+            "-- closed automatically at simulation stop. 'script logs' opens the folder.\n" +
+            "local ticks = 0\n" +
+            "\n" +
+            "function on_sim_start()\n" +
+            "    log.row(\"t\", \"pos_x\", \"pos_y\", \"pos_z\", \"speed\")   -- header\n" +
+            "    print(\"logging to: \" .. (log.path or \"(created on first row)\"))\n" +
+            "end\n" +
+            "\n" +
+            "function on_tick()\n" +
+            "    ticks = ticks + 1\n" +
+            "    if ticks % 50 ~= 0 then return end\n" +
+            "    local p = self.position\n" +
+            "    local v = self.velocity\n" +
+            "    local speed = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)\n" +
+            "    log.row(ticks / 50, p.x, p.y, p.z, speed)\n" +
+            "end\n" +
+            "\n" +
+            "function on_sim_stop()\n" +
+            "    print(\"logger: done - check \" .. (log.path or \"(nothing logged)\"))\n" +
+            "end\n";
+
         // --- Runs Lua, shows errors with line numbers, returns the result as a string ---
 
         private string RunLua(Script lua, WatchdogDebugger watchdog, string code, string chunkName = null)
@@ -542,7 +569,7 @@ namespace ScriptingMod
         {
             if (cmdArgs.Length == 0)
             {
-                ModConsole.Log("Usage: script list | show | reload [name] | folder");
+                ModConsole.Log("Usage: script list | show | reload [name] | folder | logs");
                 return;
             }
             string arg = cmdArgs.Length > 1 ? cmdArgs[1] : null;
@@ -561,9 +588,14 @@ namespace ScriptingMod
                     Modding.ModIO.OpenFolderInFileBrowser(SCRIPTS_DIR, data: true);
                     ModConsole.Log("[script] library folder opened in the file explorer");
                     return;
+                case "logs":
+                    Modding.ModIO.CreateDirectory("Logs", data: true);
+                    Modding.ModIO.OpenFolderInFileBrowser("Logs", data: true);
+                    ModConsole.Log("[script] log folder opened in the file explorer");
+                    return;
                 default:
                     ModConsole.Log("[script] unknown subcommand: " + cmdArgs[0]
-                        + " (list | show | reload | folder)");
+                        + " (list | show | reload | folder | logs)");
                     return;
             }
         }

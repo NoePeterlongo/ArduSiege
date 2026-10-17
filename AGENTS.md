@@ -2,10 +2,10 @@
 
 ## Ce qu'est ce dépôt
 
-Workspace de modding du jeu **Besiege** (Steam, Linux). But à terme : un mod de
-**scripting embarqué** (capteurs/actionneurs/boucles de contrôle pour les machines du
-joueur). Le premier mod (`mods/HelloMod`) valide la chaîne complète — il sert de
-**référence fonctionnelle** pour tout nouveau mod.
+Workspace de modding du jeu **Besiege** (Steam, Linux). Le mod **ScriptingMod**
+(bloc Microcontroller + moteur Lua MoonSharp embarqué) est la **référence
+fonctionnelle** pour tout nouveau mod. HelloMod (POC initial) a été supprimé
+après la validation de la chaîne complète.
 
 - Jeu : Unity 5.4.0f3, Mono, **CLR 2.0** (mscorlib v2.0.50727 ≈ .NET 3.5), builds x86 + x86_64.
 - **Mod loader officiel intégré** au jeu depuis v1.4 — aucune injection/hook nécessaire.
@@ -15,10 +15,10 @@ joueur). Le premier mod (`mods/HelloMod`) valide la chaîne complète — il ser
 ## Commandes essentielles
 
 ```bash
-# Compiler un mod (Docker obligatoire — ni mono ni dotnet sur l'hôte)
-bash mods/<Nom>/src/build.sh
+# Compiler ScriptingMod (Docker obligatoire — ni mono ni dotnet sur l'hôte)
+bash mods/ScriptingMod/src/build.sh
 # Docker nécessite le groupe docker ; depuis une session non reloggée :
-sg docker -c "bash mods/<Nom>/src/build.sh"
+sg docker -c "bash mods/ScriptingMod/src/build.sh"
 
 # Lancer le jeu (depuis la copie)
 cd Besiege && ./Besiege.x86_64
@@ -46,19 +46,24 @@ Besiege/                          jeu (gitignoré)
 docs/
   modding-doc.txt                 doc officielle extraite du PDF inclus au jeu (référence)
   etude-faisabilite-scripting.md  étude avant-projet du mod de scripting
-mods/<NomProjet>/                 chaque mod : structure officielle « projet »
-  <NomProjet>/                   ← ce dossier est chargé par le jeu (Mod.xml + DLL ici)
-  src/                           code source + build.sh
+  workflow-scripting.md           décisions D1-D8 (persistance, sandbox, workflow)
+  journal-*.md                    journaux des jalons M0-M5 et expériences
+  user-guide.md                   guide joueur (EN) — source de vérité de l'API
+mods/ScriptingMod/
+  ScriptingMod/                   ← dossier chargé par le jeu (Mod.xml + DLLs + blocs)
+  src/                            code source + build.sh
+third-party/moonsharp-trimmed/    MoonSharp v2.0.0.0 élagué (source vendored, BSD-2)
+tools/                            build MoonSharp (Docker) + génération d'assets
 decomp/                           jeu décompilé via ILSpy (gitignoré, à regénérer au besoin)
 ```
 
 Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande console, persistant) —
-`mods/HelloMod` est déjà enregistré.
+`mods/ScriptingMod` est déjà enregistré.
 
 ## Contraintes techniques critiques (à respecter)
 
 1. **Runtime CLR 2.0** : compiler avec `mcs -nostdlib -noconfig` en référençant les DLL de
-   `Besiege/Besiege_Data/Managed/` (voir `mods/HelloMod/src/build.sh`). Jamais de netstandard/net5+.
+   `Besiege/Besiege_Data/Managed/` (voir `mods/ScriptingMod/src/build.sh`). Jamais de netstandard/net5+.
 2. **Liste noire du mod loader** (vérifiée au chargement d'un mod) : pas de `System.IO`,
    `System.Reflection`, `System.Runtime.InteropServices`, `Mono.CSharp`, `Mono.Cecil`,
    `System.CodeDom.Compiler`, IKVM, `UnityEngine.WWW` → pas de compilation C# à runtime,

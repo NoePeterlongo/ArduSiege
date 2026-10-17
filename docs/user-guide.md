@@ -158,6 +158,15 @@ On any block handle `b`:
 | `b.forward`, `b.up`, `b.right` | block axes (world-space vectors) |
 | `b.health`, `b.is_burning`, `b.is_destroyed` | state |
 
+Actuator state:
+
+| Expression | Meaning |
+|---|---|
+| `b.angle` | steering hinge: **current** angle in degrees (0 = as built); nil for other blocks |
+| `b.angle_target` | steering hinge: commanded target angle (`AngleToBe`) |
+| `b.toggles` | table of the block's toggles, name → state |
+| `b:toggle("automatic")` | read one toggle's state |
+
 Keyboard: `input:is_held("P")`, `input:is_pressed("Space")`,
 `input:is_released("Mouse0")` — Unity `KeyCode` names.
 

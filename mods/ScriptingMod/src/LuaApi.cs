@@ -147,6 +147,15 @@ namespace ScriptingMod
                     return BuildActionsTable(script, bb);
                 case "action":
                     return DynValue.NewCallback((ctx, args) => ActionCommand(script, args), "action");
+                // --- etats des actionneurs : angle de charniere, toggles ---
+                case "angle":
+                    return BlockAngle(script, bb);
+                case "angle_target":
+                    return BlockAngleTarget(bb);
+                case "toggles":
+                    return BuildTogglesTable(script, bb);
+                case "toggle":
+                    return DynValue.NewCallback((ctx, args) => ToggleRead(script, args), "toggle");
                 default:
                     // b:<nom_action>(etat) : resolution par cle de mapper OU libelle
                     // UI (insensible a la casse) — ex. b:contract(true), b:wind(true).
@@ -384,6 +393,127 @@ namespace ScriptingMod
                 }
             }
             return null;
+        }
+
+        // --- etats des actionneurs ---
+        // Angle de charniere (SteeringWheel, BlockType.SteeringHinge) : le jeu
+        // n'expose PAS d'angle interne (l'Anglometer lui-meme calcule par geometrie).
+        // b.angle = rotation relative entre le GO de la charniere et le rigidbody
+        // connecte (ConfigurableJoint du bloc), autour de l'axe sw.axis —
+        // 0 degres = position au montage. b.angle_target = AngleToBe (commande).
+
+        private static UnityEngine.Vector3 Perp(UnityEngine.Vector3 v, UnityEngine.Vector3 axis)
+        {
+            return v - UnityEngine.Vector3.Dot(v, axis) * axis;
+        }
+
+        private static float SignedAngleAround(UnityEngine.Vector3 from,
+            UnityEngine.Vector3 to, UnityEngine.Vector3 axis)
+        {
+            float raw = UnityEngine.Vector3.Angle(from, to);       // 0..180
+            float sign = (UnityEngine.Vector3.Dot(UnityEngine.Vector3.Cross(from, to), axis) >= 0f) ? 1f : -1f;
+            return raw * sign;
+        }
+
+        /// <summary>b.angle : angle ACTUEL de la charniere (degres, 0 = au montage).</summary>
+        private DynValue BlockAngle(Script script, BlockBehaviour bb)
+        {
+            SteeringWheel sw = bb as SteeringWheel;
+            if (sw == null)
+            {
+                return DynValue.Nil;    // pas une charniere
+            }
+            UnityEngine.ConfigurableJoint joint = bb.GetComponent<UnityEngine.ConfigurableJoint>();
+            UnityEngine.Rigidbody rb = bb.Rigidbody;
+            if (joint == null || joint.connectedBody == null || rb == null)
+            {
+                return DynValue.Nil;    // pas (encore) articulee
+            }
+            UnityEngine.Vector3 axis = bb.transform.TransformDirection(sw.axis);
+            if (axis.sqrMagnitude < 1e-06f)
+            {
+                return DynValue.Nil;
+            }
+            axis.Normalize();
+
+            // directions de reference perpendiculaires a l'axe, meme nom pour les
+            // deux frames : up (repli forward si aligne a l'axe)
+            UnityEngine.Vector3 refA = Perp(bb.transform.up, axis);
+            if (refA.sqrMagnitude < 1e-06f)
+            {
+                refA = Perp(bb.transform.forward, axis);
+            }
+            UnityEngine.Vector3 refB = Perp(joint.connectedBody.transform.up, axis);
+            if (refB.sqrMagnitude < 1e-06f)
+            {
+                refB = Perp(joint.connectedBody.transform.forward, axis);
+            }
+            if (refA.sqrMagnitude < 1e-06f || refB.sqrMagnitude < 1e-06f)
+            {
+                return DynValue.Nil;
+            }
+            return DynValue.NewNumber(SignedAngleAround(refA.normalized, refB.normalized, axis));
+        }
+
+        /// <summary>b.angle_target : angle COMMANDE de la charniere (AngleToBe, degres).</summary>
+        private static DynValue BlockAngleTarget(BlockBehaviour bb)
+        {
+            SteeringWheel sw = bb as SteeringWheel;
+            return (sw == null) ? DynValue.Nil : DynValue.NewNumber(sw.AngleToBe);
+        }
+
+        /// <summary>b.toggles : table nom -> etat des toggles du bloc.</summary>
+        private static DynValue BuildTogglesTable(Script script, BlockBehaviour bb)
+        {
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            if (bb.MapperTypes == null)
+            {
+                return result;
+            }
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MToggle toggle = mt as MToggle;
+                if (toggle != null)
+                {
+                    table.Set(toggle.Key, DynValue.NewBoolean(toggle.IsActive));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>b:toggle(nom) : lit l'etat d'un toggle du bloc.</summary>
+        private DynValue ToggleRead(Script script, CallbackArguments args)
+        {
+            string name = FirstStringArg(args);
+            BlockBehaviour bb = m_Block.InternalObject;
+            if (bb == null || bb.MapperTypes == null || string.IsNullOrEmpty(name))
+            {
+                throw new ScriptRuntimeException("b:toggle(nom) : nom requis, ex. b:toggle(\"automatic\")");
+            }
+            MToggle found = null;
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MToggle toggle = mt as MToggle;
+                if (toggle == null)
+                {
+                    continue;
+                }
+                if (toggle.Key == name)
+                {
+                    return DynValue.NewBoolean(toggle.IsActive);
+                }
+                if (string.Compare(toggle.Key, name, System.StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    found = toggle;
+                }
+            }
+            if (found == null)
+            {
+                throw new ScriptRuntimeException("toggle inconnu \"" + name
+                    + "\" — consultez b.toggles pour la liste");
+            }
+            return DynValue.NewBoolean(found.IsActive);
         }
 
         private static DynValue UnknownAction(string name, BlockBehaviour bb)

@@ -1,20 +1,20 @@
-// BlockKeyActuator — actionnement direct des touches d'un bloc (branche
-// actionnement-direct).
+// BlockKeyActuator - direct actuation of a block's keys (actionnement-direct work).
 //
-// b:key("forward", true) — b:forward/b:backward/b:spin (sucre) — sans AUCUNE liaison
-// « variable » vanilla : on incremente directement le COMPTEUR d'emulation de la MKey
-// du bloc (MKey.UpdateEmulation, public). Le bloc lit EmulationHeld() au tick
-// d'emulation officiel (CogMotorControllerHinge l.501) — meme chemin que l'emulation
-// vanilla par portes logiques. Notre Microcontroller force deja
-// Prefab.EmulatesAnyKeys -> le systeme d'emulation machine est actif.
+// b:key("forward", true) - b:forward/b:backward/b:spin (sugar) - with NO vanilla
+// "variable" binding: the block's MKey emulation COUNTER is incremented directly
+// (MKey.UpdateEmulation, public). The block reads EmulationHeld() at the official
+// emulation tick (CogMotorControllerHinge l.501) - the same path as vanilla
+// emulation through logic gates. Our Microcontroller already forces
+// Prefab.EmulatesAnyKeys -> the machine emulation system is active.
 //
-// IDEMPOTENCE (lecon M3) : UpdateEmulation est un compteur (+= ±1), pas un etat —
-// on n'envoie QUE les transitions ; un canal absent du registre est deja a "false"
-// (etat de naissance du jeu) : jamais de faux "false" initial.
+// IDEMPOTENCE (M3 lesson): UpdateEmulation is a counter (+= +/-1), not a state -
+// only TRANSITIONS are sent; a channel absent from the registry is already
+// "false" (the game's birth state): never a phantom initial "false".
 //
-// Registre PAR CONTROLEUR (une instance par runtime) : remis a zero (relache tout)
-// a l'arret de la sim du controleur. Limite D4 : deux scripts pilotant la meme MKey
-// cumulent leurs compteurs — multi-controleurs = responsabilite du joueur.
+// Registry PER CONTROLLER (one instance per runtime): reset to zero (release
+// everything) when that controller's simulation stops. D4 limit: two scripts
+// driving the same MKey add up their counters - multi-controller is the
+// player's responsibility.
 
 using System.Collections.Generic;
 using MoonSharp.Interpreter;
@@ -23,16 +23,16 @@ namespace ScriptingMod
 {
     internal class BlockKeyActuator
     {
-        // etats appliques par CE runtime (MKey -> etat courant)
+        // states applied by THIS runtime (MKey -> current state)
         private readonly Dictionary<MKey, bool> m_Applied = new Dictionary<MKey, bool>();
 
         /// <summary>
-        /// Applique l'etat desire a une MKey (idempotent : transition uniquement).
+        /// Applies the desired state to an MKey (idempotent: transitions only).
         /// </summary>
         internal void Set(MKey key, bool state)
         {
             bool previously;
-            m_Applied.TryGetValue(key, out previously);   // absent = false (baseline jeu)
+            m_Applied.TryGetValue(key, out previously);   // absent = false (game baseline)
             if (previously == state)
             {
                 return;
@@ -41,7 +41,7 @@ namespace ScriptingMod
             m_Applied[key] = state;
         }
 
-        /// <summary>Relache tout ce qui a ete applique (fin de simulation).</summary>
+        /// <summary>Releases everything that was applied (end of simulation).</summary>
         internal void ResetAll()
         {
             foreach (KeyValuePair<MKey, bool> kv in m_Applied)

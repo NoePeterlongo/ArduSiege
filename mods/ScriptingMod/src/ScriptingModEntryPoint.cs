@@ -1,30 +1,32 @@
-// ScriptingModEntryPoint — POC M0 (Besiege).
+// ScriptingModEntryPoint - M0 POC (Besiege).
 //
-// Valide en jeu, de bout en bout :
-//   1. que la DLL MoonSharp elaguee (third-party/moonsharp-trimmed) passe l'AssemblyScanner
-//      du mod loader — sinon le mod ne se charge pas du tout (message [Security]) ;
-//   2. qu'un Script sandbox (Preset_SoftSandbox) s'execute : hello Lua, os.time, string.* ;
-//   3. le micro-benchmark tick (commande `bench`) ;
-//   4. la watchdog d'instructions (commande `watchdog` -> boucle infenie interrompue).
+// Validates in game, end to end:
+//   1. that the trimmed MoonSharp DLL (third-party/moonsharp-trimmed) passes the
+//      mod loader's AssemblyScanner - otherwise the mod does not load at all
+//      ([Security] message) ;
+//   2. that a sandboxed Script (Preset_SoftSandbox) runs: hello Lua, os.time,
+//      string.* ;
+//   3. the tick micro-benchmark (`bench` command) ;
+//   4. the instruction watchdog (`watchdog` command -> interrupted infinite loop).
 //
-// Console en jeu : Ctrl+Shift+K ; logs visibles apres `show_logs true`.
-// Les mods se chargent a l'entree dans un niveau/multiverse (pas au lancement).
-// Voir docs/journal-m0.md (etape 8).
+// In-game console: Ctrl+Shift+K; logs visible after `show_logs true`.
+// Mods load on entering a level/multiverse (not at launch).
+// See docs/journal-m0.md (step 8).
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Modding;
 using MoonSharp.Interpreter;
-// Le jeu expose Modding.DataType (types reseau) : alias pour lever l'ambiguite
-// avec MoonSharp.Interpreter.DataType (types de valeurs Lua).
+// The game exposes Modding.DataType (network types): alias to remove ambiguity
+// with MoonSharp.Interpreter.DataType (Lua value types).
 using MoonDataType = MoonSharp.Interpreter.DataType;
 
 namespace ScriptingMod
 {
     public class ScriptingModEntryPoint : ModEntryPoint
     {
-        // Budget par execution (instructions VM par DoString/Call) — a calibrer.
+        // Per-execution budget (VM instructions per DoString/Call) - to be calibrated.
         private const long WATCHDOG_BUDGET = 50000000L;
 
         private Script m_Script;
@@ -32,7 +34,7 @@ namespace ScriptingMod
 
         public override void OnLoad()
         {
-            ModConsole.Log("[ScriptingMod] M1 : chargement...");
+            ModConsole.Log("[ScriptingMod] M1: loading...");
 
             try
             {
@@ -47,7 +49,7 @@ namespace ScriptingMod
                         return DynValue.Nil;
                     }, "print"));
 
-                // M2 : input utilisable depuis la console (sans contexte machine)
+                // M2: input usable from the console (no machine context)
                 m_Script.Globals.Set("input", UserData.Create(new LuaInputApi()));
 
                 // 2. Watchdog branchee sur la VM
@@ -56,7 +58,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] ERREUR init MoonSharp : " + ex);
+                ModConsole.Log("[ScriptingMod] MoonSharp init ERROR: " + ex);
                 return;
             }
 
@@ -76,27 +78,27 @@ namespace ScriptingMod
 
             // 5. Commandes console de test
             ModConsole.RegisterCommand("lua", LuaCommand,
-                "lua \"<code lua>\" — execute du code Lua et affiche le retour");
+                "lua \"<lua code>\" - runs Lua code and prints the result");
             ModConsole.RegisterCommand("bench", BenchCommand,
-                "bench [n] — micro-benchmark Lua (n iterations, defaut 1 000 000)");
+                "bench [n] - Lua micro-benchmark (n iterations, default 1,000,000)");
             ModConsole.RegisterCommand("watchdog", WatchdogCommand,
-                "watchdog — lance une boucle infinie Lua : doit etre interrompue par la watchdog");
+                "watchdog - runs a Lua infinite loop: must be interrupted by the watchdog");
 
-            // M4 : bibliotheque + sources embarquees (D1-ter : nom seulement)
+            // M4: library (D1-ter: name only)
             ModConsole.RegisterCommand("script", ScriptCommand,
-                "script list|show|reload [nom]|folder — bibliotheque de scripts");
+                "script list|show|reload [name]|folder - script library");
 
-            // M4 : rafraichir le menu des Microcontroleurs a l'ouverture du mapper
-            // (nouveaux scripts visibles sans relancer le niveau).
+            // M4: refresh the Microcontrollers' menu when a mapper opens
+            // (new scripts visible without restarting the level).
             BlockMapper.onMapperOpen += OnMapperOpen;
 
-            // 6. M1 : seed de la bibliotheque de scripts (dossier data du mod)
+            // 6. M1: seed the script library (the mod's data folder)
             SeedScriptLibrary();
 
-            ModConsole.Log("[ScriptingMod] M1 pret. Commandes : lua \"<code>\", bench, watchdog");
+            ModConsole.Log("[ScriptingMod] M1 ready. Commands: lua \"<code>\", bench, watchdog");
         }
 
-        // --- M1 : bibliotheque de scripts (dossier data persistant du mod) ---
+        // --- M1: script library (the mod's persistent data folder) ---
 
         private const string SCRIPTS_DIR = "Scripts";
 
@@ -108,23 +110,23 @@ namespace ScriptingMod
                 {
                     Modding.ModIO.CreateDirectory(SCRIPTS_DIR, data: true);
                 }
-                // M2 : demos versionnees (tag SMDEMO vN) — mises a jour par le mod,
-                // jamais ecrasees si le joueur les a renommees/personnalisees sans tag.
-                WriteDemoIfOutdated("hello.lua", 1, HELLO_LUA);
-                WriteDemoIfOutdated("capteurs.lua", 3, CAPTEURS_LUA);
-                WriteDemoIfOutdated("actionneurs.lua", 2, ACTIONNEURS_LUA);
-                WriteDemoIfOutdated("noms.lua", 3, NOMS_LUA);
-                WriteDemoIfOutdated("pilotage.lua", 2, PILOTAGE_LUA);
+                // M2: versioned demos (SMDEMO vN tag) - updated by the mod,
+                // never overwritten when the player renamed/customized them (no tag).
+                WriteDemoIfOutdated("hello.lua", 2, HELLO_LUA);
+                WriteDemoIfOutdated("capteurs.lua", 4, CAPTEURS_LUA);
+                WriteDemoIfOutdated("actionneurs.lua", 3, ACTIONNEURS_LUA);
+                WriteDemoIfOutdated("noms.lua", 4, NOMS_LUA);
+                WriteDemoIfOutdated("pilotage.lua", 3, PILOTAGE_LUA);
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] ERREUR seed bibliotheque : " + ex.Message);
+                ModConsole.Log("[ScriptingMod] library seed ERROR: " + ex.Message);
             }
         }
 
-        // Demos : le contenu embarqueporte un tag "SMDEMO vN" en tete. Le fichier local
-        // est (re)ecrit si absent, ou si son tag SMDEMO est plus ancien. Un fichier sans
-        // tag (personnalise par le joueur) n'est JAMAIS touche.
+        // Demos: the embedded content carries an "SMDEMO vN" tag in its header. The
+        // local file is (re)written when absent, or when its SMDEMO tag is older. A
+        // file without a tag (player-customized) is NEVER touched.
         private static void WriteDemoIfOutdated(string fileName, int version, string content)
         {
             try
@@ -135,7 +137,7 @@ namespace ScriptingMod
                 if (!Modding.ModIO.ExistsFile(path, data: true))
                 {
                     Modding.ModIO.WriteAllText(path, content, data: true);
-                    ModConsole.Log("[ScriptingMod] bibliotheque : " + fileName + " installe (" + tag + ")");
+                    ModConsole.Log("[ScriptingMod] library: " + fileName + " installed (" + tag + ")");
                     return;
                 }
 
@@ -143,7 +145,7 @@ namespace ScriptingMod
                 int at = current != null ? current.IndexOf("SMDEMO v", System.StringComparison.Ordinal) : -1;
                 if (at < 0)
                 {
-                    return; // pas une demo (fichier joueur) — ne pas toucher
+                    return; // not a demo (player file) - do not touch
                 }
                 int localVersion;
                 int start = at + "SMDEMO v".Length;
@@ -158,65 +160,68 @@ namespace ScriptingMod
                     return; // a jour
                 }
                 Modding.ModIO.WriteAllText(path, content, data: true);
-                ModConsole.Log("[ScriptingMod] bibliotheque : " + fileName + " mis a jour (" + tag + ")");
+                ModConsole.Log("[ScriptingMod] library: " + fileName + " updated (" + tag + ")");
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] demo " + fileName + " : " + ex.Message);
+                ModConsole.Log("[ScriptingMod] demo " + fileName + ": " + ex.Message);
             }
         }
 
+// hello.lua demo (SMDEMO v2): minimal on_tick loop
         private const string HELLO_LUA =
-            "-- hello.lua (SMDEMO v1) : boucle on_tick minimale\n" +
+            "-- hello.lua (SMDEMO v2): minimal on_tick loop\n" +
             "local ticks = 0\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    print(\"script demarre : boucle on_tick a 50 Hz\")\n" +
+            "    print(\"script started: on_tick loop at 50 Hz\")\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
             "    ticks = ticks + 1\n" +
             "    if ticks % 50 == 0 then\n" +
-            "        print(ticks .. \" ticks (\" .. (ticks / 50) .. \" s de simulation)\")\n" +
+            "        print(ticks .. \" ticks (\" .. (ticks / 50) .. \" s of simulation)\")\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"script arrete apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"script stopped after \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
+
         // Demo M2 : capteurs + cinematique derivee (SMDEMO v3 : omega/accel/nivelement)
+// capteurs.lua demo (SMDEMO v4): sensors + derived kinematics
         private const string CAPTEURS_LUA =
-            "-- capteurs.lua (SMDEMO v3) : capteurs + cinematique derivee\n" +
-            "-- expose : self (bloc, position/vitesse/rotation/quaternion/directeurs),\n" +
-            "--           machine (blocs), input (clavier REEL)\n" +
-            "-- NB : les demos SMDEMO sont mises a jour par le mod ; copiez ce fichier\n" +
-            "--      sous un autre nom pour le personnaliser sans etre ecrase.\n" +
+            "-- capteurs.lua (SMDEMO v4): sensors + derived kinematics\n" +
+            "-- exposes: self (block: position/velocity/rotation/quaternion/axes),\n" +
+            "--          machine (blocks), input (REAL keyboard)\n" +
+            "-- NB: SMDEMO files are updated by the mod; copy this file under another\n" +
+            "--     name to customize it without being overwritten.\n" +
             "local ticks = 0\n" +
             "local last_v = {x = 0, y = 0, z = 0}\n" +
             "local accel_s = 0.0\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    print(\"capteurs : machine de \" .. machine.block_count .. \" blocs, masse \" .. string.format(\"%.0f\", machine.mass))\n" +
-            "    local par_type = {}\n" +
+            "    print(\"sensors: machine of \" .. machine.block_count .. \" blocks, mass \" .. string.format(\"%.0f\", machine.mass))\n" +
+            "    local per_type = {}\n" +
             "    for _, b in ipairs(machine:blocks()) do\n" +
-            "        par_type[b.type] = (par_type[b.type] or 0) + 1\n" +
+            "        per_type[b.type] = (per_type[b.type] or 0) + 1\n" +
             "    end\n" +
-            "    for t, n in pairs(par_type) do\n" +
+            "    for t, n in pairs(per_type) do\n" +
             "        print(\"  - \" .. t .. \" x\" .. n)\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
             "    ticks = ticks + 1\n" +
-            "    -- acceleration derivee : dv/dt avec dt = 1/50 s (tick fixe 50 Hz)\n" +
+            "    -- derived acceleration: dv/dt with dt = 1/50 s (50 Hz fixed tick)\n" +
             "    local v = self.velocity\n" +
             "    local ax = (v.x - last_v.x) * 50\n" +
             "    local ay = (v.y - last_v.y) * 50\n" +
             "    local az = (v.z - last_v.z) * 50\n" +
             "    last_v = v\n" +
             "    local a = math.sqrt(ax * ax + ay * ay + az * az)\n" +
-            "    accel_s = accel_s * 0.95 + a * 0.05    -- lissage exponentiel\n" +
+            "    accel_s = accel_s * 0.95 + a * 0.05    -- exponential smoothing\n" +
             "\n" +
             "    if ticks % 50 ~= 0 then return end\n" +
             "    local p = self.position\n" +
@@ -224,128 +229,135 @@ namespace ScriptingMod
             "    local w = self.angular_velocity\n" +
             "    local omega = math.sqrt(w.x * w.x + w.y * w.y + w.z * w.z) * 180 / math.pi\n" +
             "    local up = self.up\n" +
-            "    local plat = up.y > 0.95    -- axe up du bloc aligne avec le haut monde ?\n" +
-            "    print(string.format(\"t=%ds  pos=(%.1f, %.1f, %.1f)  |v|=%.2f  |a|=%.2f  omega=%.1f deg/s  plat=%s  P=%s\",\n" +
-            "        ticks / 50, p.x, p.y, p.z, speed, accel_s, omega, tostring(plat), tostring(input:is_held(\"P\"))))\n" +
+            "    local flat = up.y > 0.95    -- block up axis aligned with world up?\n" +
+            "    print(string.format(\"t=%ds  pos=(%.1f, %.1f, %.1f)  |v|=%.2f  |a|=%.2f  omega=%.1f deg/s  flat=%s  P=%s\",\n" +
+            "        ticks / 50, p.x, p.y, p.z, speed, accel_s, omega, tostring(flat), tostring(input:is_held(\"P\"))))\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"capteurs : fin apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"sensors: done after \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // Demo M3 : actionneurs — emulate(canal) + set_slider (SMDEMO v2)
+
+        // M3 demo: actuators - emulate(channel) + set_slider (SMDEMO v3)
+// actionneurs.lua demo (SMDEMO v3): drive vanilla blocks from the script
         private const string ACTIONNEURS_LUA =
-            "-- actionneurs.lua (SMDEMO v2) : piloter les blocs vanilla depuis le script\n" +
-            "-- PREPARATION : activer l'option Advanced Building dans les reglages du jeu,\n" +
-            "-- puis dans le mapper du moteur, basculez la ligne de touche en champ texte\n" +
-            "-- (bouton apparu grace a Advanced Building) et tapez le MESSAGE \"pousser\".\n" +
+            "-- actionneurs.lua (SMDEMO v3): drive vanilla blocks from the script\n" +
+            "-- SETUP: enable the Advanced Building option in the game settings,\n" +
+            "-- then in the motor's mapper, toggle its key line into a text field\n" +
+            "-- (button shown by Advanced Building) and type the MESSAGE \"push\".\n" +
             "local ticks = 0\n" +
             "local motor = nil\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    print(\"actionneurs : liez un moteur au message 'pousser' (mapper), puis tenez P\")\n" +
-            "    local moteurs = machine:blocks(\"Cog\")\n" +
-            "    if #moteurs > 0 then\n" +
-            "        motor = moteurs[1]\n" +
-            "        print(\"  moteur cible : \" .. motor.type)\n" +
+            "    print(\"actuators: bind a motor to the message 'push' (mapper), then hold P\")\n" +
+            "    local motors = machine:blocks(\"Cog\")\n" +
+            "    if #motors > 0 then\n" +
+            "        motor = motors[1]\n" +
+            "        print(\"  target motor: \" .. motor.type)\n" +
             "        for k, d in pairs(motor.sliders) do\n" +
-            "            print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "            print(\"  slider: \" .. k .. \" (\" .. d .. \")\")\n" +
             "        end\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
-            "    emulate(\"pousser\", input:is_held(\"P\"))\n" +
+            "    emulate(\"push\", input:is_held(\"P\"))\n" +
             "    ticks = ticks + 1\n" +
             "    if motor == nil or ticks % 100 ~= 0 then return end\n" +
-            "    -- module la vitesse du moteur toutes les 2 s (demo set_slider analogique)\n" +
+            "    -- modulates the motor speed every 2 s (analog set_slider demo)\n" +
             "    local v = motor:slider(\"speed\")\n" +
-            "    local cible = (v < 1.5) and 2.5 or 0.5\n" +
-            "    motor:set_slider(\"speed\", cible)\n" +
-            "    print(string.format(\"  slider speed : %.1f -> %.1f\", v, cible))\n" +
+            "    local target = (v < 1.5) and 2.5 or 0.5\n" +
+            "    motor:set_slider(\"speed\", target)\n" +
+            "    print(string.format(\"  slider speed: %.1f -> %.1f\", v, target))\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"actionneurs : fin apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"actuators: done after \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
+
         // Demo refs : adressage des blocs par variable vanilla (SMDEMO v3)
+// refs demo (SMDEMO v4): address blocks by vanilla variable (refs)
         private const string NOMS_LUA =
-            "-- noms.lua (SMDEMO v3) : adresser les blocs par variable vanilla (refs)\n" +
-            "-- PREPARATION : liez la touche d'un bloc au MESSAGE \"pousser\" dans son\n" +
-            "-- mapper (champ texte/variable, Advanced Building) ; plusieurs tags\n" +
-            "-- possibles (a;b) : controle ET identification sur la meme touche.\n" +
+            "-- noms.lua (SMDEMO v4): address blocks by vanilla variable (refs)\n" +
+            "-- SETUP: bind a block's key to the MESSAGE \"push\" in its\n" +
+            "-- mapper (text/variable field, Advanced Building); several tags\n" +
+            "-- are possible (a;b): control AND identification on the same key.\n" +
             "local ticks = 0\n" +
-            "local moteur = nil\n" +
+            "local motor = nil\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    local pousseurs = machine:refs(\"pousser\")\n" +
-            "    print(#pousseurs .. \" bloc(s) ecoutent la variable 'pousser'\")\n" +
-            "    for i, b in ipairs(pousseurs) do\n" +
-            "        print(\"  refs : \" .. b.type)\n" +
+            "    local pushers = machine:refs(\"push\")\n" +
+            "    print(#pushers .. \" block(s) listen to the variable 'push'\")\n" +
+            "    for i, b in ipairs(pushers) do\n" +
+            "        print(\"  refs: \" .. b.type)\n" +
             "    end\n" +
-            "    if #pousseurs > 0 then\n" +
-            "        moteur = pousseurs[1]\n" +
-            "        for k, d in pairs(moteur.sliders) do\n" +
-            "            print(\"  slider : \" .. k .. \" (\" .. d .. \")\")\n" +
+            "    if #pushers > 0 then\n" +
+            "        motor = pushers[1]\n" +
+            "        for k, d in pairs(motor.sliders) do\n" +
+            "            print(\"  slider: \" .. k .. \" (\" .. d .. \")\")\n" +
             "        end\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
-            "    emulate(\"pousser\", input:is_held(\"P\"))\n" +
+            "    emulate(\"push\", input:is_held(\"P\"))\n" +
             "    ticks = ticks + 1\n" +
-            "    if moteur == nil or ticks % 100 ~= 0 then return end\n" +
-            "    -- module la vitesse du bloc ecouteur toutes les 2 s (demo set_slider)\n" +
-            "    local v = moteur:slider(\"speed\")\n" +
-            "    local cible = (v < 1.5) and 2.5 or 0.5\n" +
-            "    moteur:set_slider(\"speed\", cible)\n" +
-            "    print(string.format(\"  [refs] slider speed : %.1f -> %.1f\", v, cible))\n" +
+            "    if motor == nil or ticks % 100 ~= 0 then return end\n" +
+            "    -- modulates the listener block's speed every 2 s (set_slider demo)\n" +
+            "    local v = motor:slider(\"speed\")\n" +
+            "    local target = (v < 1.5) and 2.5 or 0.5\n" +
+            "    motor:set_slider(\"speed\", target)\n" +
+            "    print(string.format(\"  [refs] slider speed: %.1f -> %.1f\", v, target))\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"refs : fin apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"refs: done after \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
+
         // Demo actionnement direct : les actions portent le nom vu dans l'UI (SMDEMO v2)
+// direct actuation demo (SMDEMO v3): actions carry their UI names
         private const string PILOTAGE_LUA =
-            "-- pilotage.lua (SMDEMO v2) : piloter un bloc par ses ACTIONS (nom de l'UI)\n" +
-            "-- PREPARATION : aucune ! placez un moteur (Cog) — pas de liaison mapper.\n" +
-            "-- Les actions d'un bloc sont visibles dans son mapper (touches) :\n" +
-            "-- moteur : forward/backward ; bloc de vol : spin ; spring : contract...\n" +
-            "-- Idiome : ETAT COMPLET a chaque tick — b:forward(P tenu), b:backward(O tenu).\n" +
-            "local moteur = nil\n" +
+            "-- pilotage.lua (SMDEMO v3): drive a block through its ACTIONS (UI names)\n" +
+            "-- SETUP: none! Place a motor (Cog) - no mapper binding required.\n" +
+            "-- A block's actions are visible in its mapper (keys):\n" +
+            "-- motor: forward/backward ; flying block: spin ; spring: contract...\n" +
+            "-- Idiom: FULL STATE every tick - b:forward(P held), b:backward(O held).\n" +
+            "local motor = nil\n" +
             "local ticks = 0\n" +
             "\n" +
             "function on_sim_start()\n" +
-            "    local moteurs = machine:blocks(\"Cog\")\n" +
-            "    if #moteurs == 0 then\n" +
-            "        print(\"placez un moteur (Cog) — aucune liaison mapper requise !\")\n" +
+            "    local motors = machine:blocks(\"Cog\")\n" +
+            "    if #motors == 0 then\n" +
+            "        print(\"place a motor (Cog) - no mapper binding required!\")\n" +
             "        return\n" +
             "    end\n" +
-            "    moteur = moteurs[1]\n" +
-            "    print(\"moteur pilote : \" .. moteur.type .. \" — P avant, O arriere\")\n" +
-            "    for nom, libelle in pairs(moteur.actions) do\n" +
-            "        print(\"  action : \" .. nom .. \" (\" .. libelle .. \")\")\n" +
+            "    motor = motors[1]\n" +
+            "    print(\"driven motor: \" .. motor.type .. \" - P forward, O backward\")\n" +
+            "    for name, label in pairs(motor.actions) do\n" +
+            "        print(\"  action: \" .. name .. \" (\" .. label .. \")\")\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_tick()\n" +
-            "    if moteur == nil then return end\n" +
+            "    if motor == nil then return end\n" +
             "    ticks = ticks + 1\n" +
-            "    moteur:forward(input:is_held(\"P\"))\n" +
-            "    moteur:backward(input:is_held(\"O\"))\n" +
+            "    motor:forward(input:is_held(\"P\"))\n" +
+            "    motor:backward(input:is_held(\"O\"))\n" +
             "    if ticks % 100 == 0 then\n" +
-            "        local v = moteur:slider(\"speed\")\n" +
-            "        moteur:set_slider(\"speed\", (v < 1.5) and 2.5 or 0.5)\n" +
+            "        local v = motor:slider(\"speed\")\n" +
+            "        motor:set_slider(\"speed\", (v < 1.5) and 2.5 or 0.5)\n" +
             "    end\n" +
             "end\n" +
             "\n" +
             "function on_sim_stop()\n" +
-            "    print(\"pilotage : fin apres \" .. ticks .. \" ticks\")\n" +
+            "    print(\"pilotage: done after \" .. ticks .. \" ticks\")\n" +
             "end\n";
 
-        // --- Execute du Lua, affiche les erreurs avec ligne, retourne le resultat en string ---
+
+        // --- Runs Lua, shows errors with line numbers, returns the result as a string ---
 
         private string RunLua(Script lua, WatchdogDebugger watchdog, string code, string chunkName = null)
         {
@@ -362,17 +374,17 @@ namespace ScriptingMod
             }
             catch (WatchdogBudgetExceededException wex)
             {
-                ModConsole.Log("[ScriptingMod] WATCHDOG : " + wex.Message);
+                ModConsole.Log("[ScriptingMod] WATCHDOG: " + wex.Message);
                 return null;
             }
             catch (InterpreterException iex) // couvre SyntaxErrorException + ScriptRuntimeException
             {
-                ModConsole.Log("[ScriptingMod] ERREUR Lua : " + (iex.DecoratedMessage ?? iex.Message));
+                ModConsole.Log("[ScriptingMod] Lua ERROR: " + (iex.DecoratedMessage ?? iex.Message));
                 return null;
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[ScriptingMod] ERREUR inattendue : " + ex);
+                ModConsole.Log("[ScriptingMod] unexpected ERROR: " + ex);
                 return null;
             }
         }
@@ -384,7 +396,7 @@ namespace ScriptingMod
 
         private void PrintToConsole(CallbackArguments args)
         {
-            // print(...) — concatene tous les arguments separes par des tabulations
+            // print(...) - concatenates all arguments separated by tabs
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             for (int i = 0; i < args.Count; i++)
             {
@@ -396,10 +408,10 @@ namespace ScriptingMod
 
         // --- Commandes console ---
 
-        // --- M2 : runtime actif du Microcontroleur (pour la commande console `lua`) ---
-        // Pendant une simulation, `lua "..."` s'execute dans le contexte du
-        // microcontroleur (self/machine/input du script en cours). Sinon, retour au
-        // POC console (input dispo ; machine resolu a la volee sur le joueur local).
+        // --- M2: the Microcontroller's active runtime (for the `lua` console command) ---
+        // During a simulation, `lua "..."` runs in the microcontroller's context
+        // (the running script's self/machine/input). Otherwise, back to the console
+        // POC (input available; machine resolved on the fly for the local player).
 
         internal static Script ActiveRuntime { get; private set; }
         internal static WatchdogDebugger ActiveWatchdog { get; private set; }
@@ -410,7 +422,7 @@ namespace ScriptingMod
             ActiveRuntime = lua;
             ActiveWatchdog = watchdog;
             ActiveScriptName = scriptName;
-            ModConsole.Log("[ScriptingMod] console lua -> contexte microcontroleur (" + (scriptName ?? "?") + ")");
+            ModConsole.Log("[ScriptingMod] lua console -> microcontroller context (" + (scriptName ?? "?") + ")");
         }
 
         internal static void ClearActiveRuntime()
@@ -422,10 +434,10 @@ namespace ScriptingMod
 
         private void RefreshConsoleMachine()
         {
-            // machine locale, re-resolue a chaque appel (le POC n'a pas de contexte
-            // bloc) ; nil si aucune machine (menu, multiverse...)
-            // NB M4 : GetLocalPlayer() est null en SOLO (PlayerData.localPlayer n'est
-            // assigne qu'en MP) -> GetLocalMachine() couvre aussi le cas SP.
+            // local machine, re-resolved on every call (the POC has no block
+            // context); nil when there is no machine (menu, multiverse...)
+            // NB M4: GetLocalPlayer() is null in SOLO (PlayerData.localPlayer is
+            // only assigned in MP) -> GetLocalMachine() covers SP too.
             DynValue machineValue = DynValue.Nil;
             try
             {
@@ -446,11 +458,11 @@ namespace ScriptingMod
         {
             if (cmdArgs.Length == 0)
             {
-                ModConsole.Log("Usage : lua \"<code lua>\"");
-                ModConsole.Log("(en simulation : contexte du microcontroleur — self/machine/input ; sinon POC — machine/input du joueur local)");
+                ModConsole.Log("Usage: lua \"<lua code>\"");
+            ModConsole.Log("(simulating: microcontroller context - self/machine/input; otherwise POC - local player's machine/input)");
                 return;
             }
-            // la console gere le quoting d'un argument avec espaces : on recolle tout au cas ou
+            // the console handles quoting an argument with spaces: re-join everything just in case
             string code = string.Join(" ", cmdArgs);
 
             Script target = ActiveRuntime;
@@ -458,7 +470,7 @@ namespace ScriptingMod
 
             if (target != null)
             {
-                ModConsole.Log("[lua] (contexte : " + ActiveScriptName + ")");
+                ModConsole.Log("[lua] (context: " + ActiveScriptName + ")");
             }
             else
             {
@@ -478,9 +490,9 @@ namespace ScriptingMod
             if (cmdArgs.Length > 0) long.TryParse(cmdArgs[0], out n);
             if (n < 1) n = 1000000L;
 
-            ModConsole.Log(string.Format("[bench] Lua : {0:N0} iterations + additions...", n));
+            ModConsole.Log(string.Format("[bench] Lua: {0:N0} iterations + additions...", n));
 
-            // benchmark 1 : arithmetique pure (avec watchdog = hooks actifs — condition reelle)
+            // benchmark 1: pure arithmetic (with watchdog = active hooks - real conditions)
             m_Watchdog.Reset();
             Stopwatch sw = Stopwatch.StartNew();
             DynValue res = m_Script.DoString(
@@ -492,7 +504,7 @@ namespace ScriptingMod
                 "[bench] 1) boucle + adds (watchdog ON) : {0} ms, {1:N0} instr/s approx, res={2}",
                 sw.ElapsedMilliseconds, ipsWithDbg, res.Number));
 
-            // extrapolation : cout d'un tick de 2000 instructions a 50 Hz
+            // extrapolation: cost of a 2000-instruction tick at 50 Hz
             double msPerTick = (sw.Elapsed.TotalMilliseconds / Math.Max(1, n)) * 2000.0;
             ModConsole.Log(string.Format(
                 "[bench] 2) cout estime d'un tick 50 Hz a 2000 instr : {0:0.000} ms/frame (budget Unity ~ 20 ms)",
@@ -504,33 +516,33 @@ namespace ScriptingMod
 
         private void WatchdogCommand(string[] cmdArgs)
         {
-            ModConsole.Log("[watchdog] lancement de `while true do end` — si la watchdog fonctionne, ce message est suivi d'une interruption ; sinon le jeu gele.");
+            ModConsole.Log("[watchdog] running `while true do end` - if the watchdog works, this message is followed by an interruption; otherwise the game freezes.");
 
             m_Watchdog.Reset();
             try
             {
                 m_Script.DoString("while true do end", null, "watchdog-test");
                 // On ne doit JAMAIS atteindre cette ligne :
-                ModConsole.Log("[watchdog] ECHEC : la boucle infinie est terminee sans interruption ?!");
+                ModConsole.Log("[watchdog] FAIL: the infinite loop finished without interruption?!");
             }
             catch (WatchdogBudgetExceededException wex)
             {
-                ModConsole.Log("[watchdog] SUCCES : " + wex.Message);
-                ModConsole.Log("[watchdog] Le jeu continue de tourner. Rejoue la simulation pour continuer a jouer normalement.");
+                ModConsole.Log("[watchdog] SUCCESS: " + wex.Message);
+                ModConsole.Log("[watchdog] The game keeps running. Replay the simulation to keep playing normally.");
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[watchdog] Interruption par un autre type d'exception : " + ex.GetType().FullName + " : " + ex.Message);
+                ModConsole.Log("[watchdog] Interrupted by another exception type: " + ex.GetType().FullName + ": " + ex.Message);
             }
         }
 
-        // --- M4 : commandes `script` (bibliotheque + sources embarquees, D1-bis) ---
+        // --- M4: `script` commands (library, D1-bis) ---
 
         private void ScriptCommand(string[] cmdArgs)
         {
             if (cmdArgs.Length == 0)
             {
-                ModConsole.Log("Usage : script list | show | reload [nom] | folder");
+                ModConsole.Log("Usage: script list | show | reload [name] | folder");
                 return;
             }
             string arg = cmdArgs.Length > 1 ? cmdArgs[1] : null;
@@ -547,19 +559,19 @@ namespace ScriptingMod
                     return;
                 case "folder":
                     Modding.ModIO.OpenFolderInFileBrowser(SCRIPTS_DIR, data: true);
-                    ModConsole.Log("[script] dossier de la bibliotheque ouvert dans l'explorateur");
+                    ModConsole.Log("[script] library folder opened in the file explorer");
                     return;
                 default:
-                    ModConsole.Log("[script] sous-commande inconnue : " + cmdArgs[0]
+                    ModConsole.Log("[script] unknown subcommand: " + cmdArgs[0]
                         + " (list | show | reload | folder)");
                     return;
             }
         }
 
         /// <summary>
-        /// M4 : a l'ouverture d'un mapper — si c'est un Microcontroller, rafraichir son
-        /// menu depuis la bibliotheque puis reconstruire les widgets (Rebuild, PAS
-        /// Refresh : Refresh rappelle Open() et donc onMapperOpen = boucle infinie).
+        /// M4: when a mapper opens - if it is a Microcontroller, refresh its menu
+        /// from the library then rebuild the widgets (Rebuild, NOT Refresh:
+        /// Refresh calls Open() again, therefore onMapperOpen = infinite loop).
         /// </summary>
         private void OnMapperOpen()
         {
@@ -580,7 +592,7 @@ namespace ScriptingMod
             }
             catch (Exception)
             {
-                // un mapper d'un autre type d'objet : rien a faire
+                // a mapper of some other object type: nothing to do
             }
         }
 
@@ -589,7 +601,7 @@ namespace ScriptingMod
             try
             {
                 string[] files = Modding.ModIO.GetFiles(SCRIPTS_DIR, "*.lua", data: true);
-                ModConsole.Log("[script] bibliotheque : " + files.Length + " script(s)");
+                ModConsole.Log("[script] library: " + files.Length + " script(s)");
                 foreach (string file in files)
                 {
                     ModConsole.Log("  - " + System.IO.Path.GetFileNameWithoutExtension(file));
@@ -597,7 +609,7 @@ namespace ScriptingMod
             }
             catch (Exception ex)
             {
-                ModConsole.Log("[script] list impossible : " + ex.Message);
+                ModConsole.Log("[script] list failed: " + ex.Message);
             }
         }
 
@@ -610,16 +622,16 @@ namespace ScriptingMod
             }
             if (controllers.Count == 0)
             {
-                ModConsole.Log("[script] aucun bloc Microcontroller trouve (placez-en un ou chargez une machine qui en contient)");
+                ModConsole.Log("[script] no Microcontroller block found (place one or load a machine that has one)");
                 return;
             }
             int i = 1;
             foreach (MicrocontrollerScript mc in controllers)
             {
                 string name = mc.MenuSelection ?? "(aucun)";
-                string etat = mc.HasScriptFile ? "present" : "N'EXISTE PLUS (marque * au mapper)";
-                string actif = mc.IsRuntimeActive ? " ; EN SIMULATION" : string.Empty;
-                ModConsole.Log("[script] controleur " + i++ + " : \"" + name + "\" — "
+                string etat = mc.HasScriptFile ? "present" : "MISSING (marked * in the mapper)";
+                string actif = mc.IsRuntimeActive ? " ; SIMULATING" : string.Empty;
+                ModConsole.Log("[script] controller " + i++ + ": \"" + name + "\" - "
                     + etat + actif);
             }
         }
@@ -633,7 +645,7 @@ namespace ScriptingMod
             }
             if (controllers.Count == 0)
             {
-                ModConsole.Log("[script] reload : aucun bloc Microcontroller trouve");
+                ModConsole.Log("[script] reload: no Microcontroller block found");
                 return;
             }
             int n = 0;
@@ -649,16 +661,16 @@ namespace ScriptingMod
                     n++;
                 }
             }
-            ModConsole.Log("[script] reload : " + n + " controleur(s) recharge(s)");
+            ModConsole.Log("[script] reload: " + n + " controller(s) reloaded");
         }
 
-        // trace du dernier scan (diagnostic script show/reload)
+        // trace of the last scan (script show/reload diagnostics)
         private string m_ScanInfo;
 
         /// <summary>
-        /// Microcontroleurs de la machine locale. Scan la liste ACTIVE (sim ou
-        /// construction) puis l'autre en secours, dedupliquise par GUID ; m_ScanInfo
-        /// decrit chaque etape (diagnostic : joueur, machine, blocs, composants).
+        /// Local machine's Microcontrollers. Scans the ACTIVE list (sim or building)
+        /// then the other as a fallback, deduplicated by GUID; m_ScanInfo describes
+        /// each step (diagnostics: player, machine, blocks, components).
         /// </summary>
         private List<MicrocontrollerScript> GetControllers()
         {
@@ -666,9 +678,9 @@ namespace ScriptingMod
             List<MicrocontrollerScript> result = new List<MicrocontrollerScript>();
             try
             {
-                // SP : PlayerData.localPlayer n'est assigne qu'en MP (ChatController)
-                // -> GetLocalPlayer() retourne null en solo. Le point d'acces solo est
-                // Machine.Active() (MachineObjectTracker.activeMachine).
+                // SP: PlayerData.localPlayer is only assigned in MP (ChatController)
+                // -> GetLocalPlayer() returns null in single player. The SP access
+                // point is Machine.Active() (MachineObjectTracker.activeMachine).
                 Modding.Blocks.PlayerMachine machine = GetLocalMachine();
                 if (machine == null)
                 {
@@ -681,25 +693,25 @@ namespace ScriptingMod
                     sim ? machine.SimulationBlocks : machine.BuildingBlocks;
                 int scanned = ScanControllers(blocks, result);
 
-                // secours : la liste inactive peut rester la seule valable selon le mode
+                // fallback: the inactive list may remain the only valid one depending on mode
                 System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> other =
                     sim ? machine.BuildingBlocks : machine.SimulationBlocks;
                 int scannedOther = result.Count == 0 ? ScanControllers(other, result) : 0;
 
-                m_ScanInfo = "joueur OK, machine OK ; "
-                    + scanned + " bloc(s) en " + (sim ? "simulation" : "construction")
-                    + (scannedOther > 0 ? " + " + scannedOther + " dans l'autre liste" : string.Empty)
-                    + " ; " + result.Count + " microcontroleur(s)";
+                m_ScanInfo = "player OK, machine OK; "
+                    + scanned + " block(s) in " + (sim ? "simulation" : "building")
+                    + (scannedOther > 0 ? " + " + scannedOther + " in the other list" : string.Empty)
+                    + "; " + result.Count + " microcontroller(s)";
             }
             catch (Exception ex)
             {
-                m_ScanInfo = "exception : " + ex.GetType().FullName + " : " + ex.Message;
+                m_ScanInfo = "exception: " + ex.GetType().FullName + ": " + ex.Message;
             }
             return result;
         }
 
         /// <summary>
-        /// Machine locale : MP -> joueur local ; SP -> Machine.Active().
+        /// Local machine: MP -> local player; SP -> Machine.Active().
         /// </summary>
         internal static Modding.Blocks.PlayerMachine GetLocalMachine()
         {
@@ -713,7 +725,7 @@ namespace ScriptingMod
             }
             catch (Exception)
             {
-                // hors MP : Playerlist/PlayerData non initialises
+                // outside MP: Playerlist/PlayerData not initialized
             }
             try
             {
@@ -725,12 +737,12 @@ namespace ScriptingMod
             }
             catch (Exception)
             {
-                // pas de machine active (menu)
+                // no active machine (menu)
             }
             return null;
         }
 
-        /// <summary>Collecte les MicrocontrollerScript d'une collection de blocs (dedup par GUID).</summary>
+        /// <summary>Collects MicrocontrollerScripts from a block collection (GUID dedup).</summary>
         private static int ScanControllers(
             System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks,
             List<MicrocontrollerScript> result)

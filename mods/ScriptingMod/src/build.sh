@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Compile ScriptingMod.dll (le code du mod) via Docker (mono:6.12).
-# La DLL MoonSharp elaguee est construite par tools/moonsharp-build.sh.
+# Compiles ScriptingMod.dll (the mod code) via Docker (mono:6.12).
+# The trimmed MoonSharp DLL is built by tools/moonsharp-build.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,11 +8,11 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 MOD_DIR="$REPO_DIR/mods/ScriptingMod/ScriptingMod"
 
 [ -f "$MOD_DIR/MoonSharp.Interpreter.dll" ] || {
-    echo "ERREUR : MoonSharp.Interpreter.dll absente — lancer tools/moonsharp-build.sh d'abord." >&2
+    echo "ERROR: MoonSharp.Interpreter.dll missing - run tools/moonsharp-build.sh first." >&2
     exit 1
 }
 
-echo ">> Compilation de ScriptingMod.dll (Docker mono:6.12)..."
+echo ">> Compiling ScriptingMod.dll (Docker mono:6.12)..."
 sg docker -c "docker run --rm --user $(id -u):$(id -g) -e HOME=/tmp \
     -v \"$REPO_DIR\":/work -w /work mono:6.12 bash -euc '
 GAME=/work/Besiege/Besiege_Data/Managed
@@ -32,4 +32,4 @@ mcs -nostdlib -noconfig -target:library -optimize+ \
 echo \">> BUILD OK\"
 '"
 
-echo ">> OK : $MOD_DIR/ScriptingMod.dll"
+echo ">> OK: $MOD_DIR/ScriptingMod.dll"

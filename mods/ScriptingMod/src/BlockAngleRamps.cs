@@ -1,15 +1,16 @@
-// BlockAngleRamps — rampes d'angle cible (branche actionnement-direct).
+// BlockAngleRamps - target-angle ramps (actionnement-direct work).
 //
-// b:set_angle(angle) : la cible avance vers l'angle vise A LA VITESSE DU BLOC —
-// transparent : c'est le slider "rotation-speed" du mapper, la meme vitesse que
-// quand on tient la touche (le bloc deplace lui-meme sa cible de totalSpeed par
-// tick, decomp SteeringWheel l.373). Plus de saut brusque qui casse la machine.
-// b:set_angle(angle, v_max) : surcharge la vitesse en degres/seconde.
+// b:set_angle(angle): the target moves toward the angle AT THE BLOCK'S OWN
+// SPEED - transparent: that is the mapper's "rotation-speed" slider, the same
+// speed as holding its key (the block itself moves its target by totalSpeed
+// per tick, decomp SteeringWheel l.373). No more machine-breaking snaps.
+// b:set_angle(angle, v_max): overrides the speed in degrees/second.
 //
-// Le registre vit PAR CONTROLEUR (une instance par runtime, comme
-// BlockKeyActuator), avance au tick du controleur (50 Hz), purge a l'arret de sim.
-// Limite D4 : deux scripts rampons le meme bloc — responsabilite du joueur.
-// Slider a 0 = vitesse nulle : la rampe attend (meme comportement que la touche).
+// The registry lives PER CONTROLLER (one instance per runtime, like
+// BlockKeyActuator), advanced by the controller's tick (50 Hz), cleared on
+// simulation stop. D4 limit: two scripts ramping the same block is the
+// player's responsibility. Speed slider at 0 = no motion: the ramp waits
+// (same behaviour as the key).
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -20,15 +21,15 @@ namespace ScriptingMod
     {
         private struct Ramp
         {
-            public float Goal;          // degres vises
-            public float DegPerSec;     // > 0 : vitesse explicite ; <= 0 : vitesse du bloc
+            public float Goal;          // target angle, degrees
+            public float DegPerSec;     // > 0: explicit speed ; <= 0: block's own speed
         }
 
-        // bloc orientable -> rampe en cours (cle = instance stable pendant la sim)
+        // orientable block -> ongoing ramp (key = instance stable during the sim)
         private readonly Dictionary<BlockBehaviour, Ramp> m_Ramps =
             new Dictionary<BlockBehaviour, Ramp>();
 
-        /// <summary>b:set_angle(angle) — vitesse du bloc ; b:set_angle(angle, v_max).</summary>
+        /// <summary>b:set_angle(angle) - block speed ; b:set_angle(angle, v_max).</summary>
         internal void Set(BlockBehaviour bb, float goal, float degPerSec)
         {
             Ramp r;
@@ -37,7 +38,7 @@ namespace ScriptingMod
             m_Ramps[bb] = r;
         }
 
-        /// <summary>Avance les cibles vers leur but (appele au tick du controleur).</summary>
+        /// <summary>Advances the targets toward their goal (called on the controller's tick).</summary>
         internal void Tick(float dt)
         {
             List<BlockBehaviour> done = null;
@@ -47,7 +48,7 @@ namespace ScriptingMod
                 float step = (r.DegPerSec > 0f) ? r.DegPerSec * dt : BlockSpeedPerTick(kv.Key);
                 if (step <= 0f)
                 {
-                    continue;       // slider a 0 : la rampe attend
+                    continue;       // speed slider at 0: the ramp waits
                 }
                 float current = ReadTarget(kv.Key);
                 float delta = r.Goal - current;
@@ -79,24 +80,24 @@ namespace ScriptingMod
             }
         }
 
-        /// <summary>Purge les rampes (fin de simulation) — la cible reste ou elle est.</summary>
+        /// <summary>Clears the ramps (end of simulation) - targets stay where they are.</summary>
         internal void Clear()
         {
             m_Ramps.Clear();
         }
 
-        /// <summary>Vitesse du bloc, degres PAR TICK (celle du slider rotation-speed).</summary>
+        /// <summary>The block's own speed, degrees PER TICK (the rotation-speed slider's).</summary>
         private static float BlockSpeedPerTick(BlockBehaviour bb)
         {
             SteeringWheel sw = bb as SteeringWheel;
             if (sw != null)
             {
-                return sw.totalSpeed;      // public, recalcule par le bloc a chaque tick
+                return sw.totalSpeed;      // public, recomputed by the block every tick
             }
             RudderController rudder = bb as RudderController;
             if (rudder != null && rudder.SpeedSlider != null)
             {
-                // formule du decomp RudderController l.331 : accumulation angleyToBe
+                // decomp RudderController l.331 formula: angleyToBe accumulation
                 return Time.fixedDeltaTime * 100f * rudder.targetAngleSpeed * rudder.SpeedSlider.Value;
             }
             return 0f;

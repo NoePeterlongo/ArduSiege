@@ -1,15 +1,16 @@
-// WatchdogDebugger — POC M0 du mod ScriptingMod (Besiege).
+// WatchdogDebugger - ScriptingMod M0 POC (Besiege).
 //
-// Objectif : prouver qu'un script Lua degenere (ex. `while true do end`) peut etre
-// interrompu SANS geler le jeu. Mecanisme : l'interface MoonSharp IDebugger est appellee
-// PAR LA VM pendant l'execution du bytecode (IsPauseRequested, "called A LOT" — source
-// MoonSharp v2.0.0.0) ; on y compte les appels (~ un par saut d'instruction) et on
-// depasse le budget -> exception, qui se propage hors de Script.Call (la boucle de la VM
-// ne catch que InterpreterException — verifie dans Processor_InstructionLoop.cs:26/249).
+// Goal: prove that a runaway Lua script (e.g. `while true do end`) can be
+// interrupted WITHOUT freezing the game. Mechanism: the MoonSharp IDebugger
+// interface is called BY the VM during bytecode execution (IsPauseRequested,
+// "called A LOT" - MoonSharp v2.0.0.0 source); we count the calls (~ one per
+// instruction jump) and past the budget -> exception, which propagates out of
+// Script.Call (the VM loop only catches InterpreterException - verified in
+// Processor_InstructionLoop.cs:26/249).
 //
-// ATTENTION perf : un debugger attache active ListenDebugger() a chaque instruction
-// (cout a benchmarker — commande `bench`).
-// Voir docs/journal-m0.md (etape 8) et docs/etude-faisabilite-scripting.md (D3).
+// PERF note: an attached debugger activates ListenDebugger() on every
+// instruction (cost to benchmark - `bench` command).
+// See docs/journal-m0.md (step 8) and docs/etude-faisabilite-scripting.md (D3).
 
 using System;
 using System.Collections.Generic;
@@ -19,24 +20,25 @@ using MoonSharp.Interpreter.Debugging;
 namespace ScriptingMod
 {
     /// <summary>
-    /// Levee par la watchdog quand le budget d'instructions d'une execution est depasse.
-    /// Exception "normale" (pas InterpreterException) : elle traverse la VM sans etre
-    /// interceptee et remonte a l'appelant de Script.Call.
+    /// Thrown by the watchdog when an execution's instruction budget is exceeded.
+    /// "Normal" exception (not InterpreterException): it crosses the VM without
+    /// being caught and propagates to the caller of Script.Call.
     /// </summary>
     public class WatchdogBudgetExceededException : Exception
     {
         public long Budget { get; private set; }
 
         public WatchdogBudgetExceededException(long budget)
-            : base("budget d'instructions depasse (" + budget + ") — script interrompu par la watchdog")
+            : base("instruction budget exceeded (" + budget + ") - script interrupted by the watchdog")
         {
             Budget = budget;
         }
     }
 
     /// <summary>
-    /// Compteur d'instructionsMoonSharp via l'interface IDebugger (hooks d'execution VM).
-    /// Reset() avant chaque execution pour borner CHAQUE tick/DoString independamment.
+    /// MoonSharp instruction counter through the IDebugger interface (VM execution
+    /// hooks). Call Reset() before each execution to bound EACH tick/DoString
+    /// independently.
     /// </summary>
     public class WatchdogDebugger : IDebugger
     {
@@ -49,7 +51,7 @@ namespace ScriptingMod
             m_Count = 0;
         }
 
-        /// <summary>A appeler avant chaque DoString/Call borne par ce budget.</summary>
+        /// <summary>Call before each DoString/Call bounded by this budget.</summary>
         public void Reset()
         {
             m_Count = 0;
@@ -57,7 +59,7 @@ namespace ScriptingMod
 
         public DebuggerCaps GetDebuggerCaps()
         {
-            return 0; // aucune capacite de debug requise — on ne fait que compter
+            return 0; // no debug capability required - we only count
         }
 
         public void SetDebugService(DebugService debugService) { }
@@ -66,7 +68,7 @@ namespace ScriptingMod
 
         public void SetByteCode(string[] byteCode) { }
 
-        // --- Le coeur de la watchdog : appele PAR LA VM a chaque instruction ---
+        // --- The watchdog's core: called BY THE VM on every instruction ---
 
         public bool IsPauseRequested()
         {
@@ -77,13 +79,13 @@ namespace ScriptingMod
 
         public bool SignalRuntimeException(ScriptRuntimeException ex)
         {
-            return false; // pas de pause sur erreur runtime : l'exception remonte normalement
+            return false; // no pause on runtime errors: the exception propagates normally
         }
 
         public DebuggerAction GetAction(int ip, SourceRef sourceref)
         {
-            // Jamais appele en pratique (IsPauseRequested ne demande jamais pause),
-            // mais l'interface l'exige : on continue l'execution.
+            // Never called in practice (IsPauseRequested never requests a pause),
+            // but the interface requires it: keep executing.
             return new DebuggerAction { Action = DebuggerAction.ActionType.Run };
         }
 

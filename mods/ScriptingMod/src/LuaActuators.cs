@@ -1,20 +1,20 @@
-// LuaActuators — M3 du mod ScriptingMod (Besiege) : API actionneurs.
+// LuaActuators - ScriptingMod M3 (Besiege): actuator API.
 //
-// emulate(canal, etat) — pilote les blocs vanilla via l'emulation de touches native :
-//   - le joueur lie la touche d'un bloc au MESSAGE "moncanal" dans son mapper
-//     (systeme vanilla « variables a la place des touches », v1.10) ;
-//   - le script appelle emulate("moncanal", true/false) chaque tick ;
-//   - l'etat desiré est APPLIQUE au tick d'emulation officiel
+// emulate(channel, state) - drives vanilla blocks through native key emulation:
+//   - the player binds a block key to the MESSAGE "mychannel" in its mapper
+//     (vanilla "variables instead of keys" system, v1.10) ;
+//   - the script calls emulate("mychannel", true/false) every tick ;
+//   - the desired state is APPLIED at the official emulation tick
 //     (SendKeyEmulationUpdateHost -> ModBlockBehaviour.EmulateKeys -> KeyInputController) ;
-//   - IDEMPOTENCE obligatoire : KeyInputController.Emulate fait un compteur
-//     (MKey.UpdateEmulation incrémente/décrémente `emulators`) — on n'appelle EmulateKeys
-//     QUE sur les changements d'etat (pending != applied) ;
-//   - garde anti-NRE : KeyInputController.Emulate fait usedMessages[text] SANS
-//     verification — émuler un canal sans écouteur lèverait — on scanne les blocs de la
-//     machine (MapperTypes publics) pour vérifier le canal avant d'émuler.
+//   - IDEMPOTENCE is mandatory: KeyInputController.Emulate works on a counter
+//     (MKey.UpdateEmulation increments/decrements `emulators`) - EmulateKeys is called
+//     ONLY on state changes (pending != applied) ;
+//   - anti-NRE guard: KeyInputController.Emulate dereferences usedMessages[text]
+//     WITHOUT checking - emulating a channel with no listener would throw - machine
+//     blocks (public MapperTypes) are scanned to validate the channel first.
 //
-// Le wrapper est directement CALLABLE : emulate("x", true) via le metamethod __call.
-// Voir docs/journal-m3.md.
+// The wrapper is directly CALLABLE: emulate("x", true) via the __call metamethod.
+// See docs/journal-m3.md.
 
 using System.Collections.Generic;
 using Modding;
@@ -28,17 +28,17 @@ namespace ScriptingMod
     {
         private readonly MicrocontrollerScript m_Controller;
 
-        // canal -> MKey d'emulation (useMessage=true, message=[canal])
+        // channel -> emulation MKey (useMessage=true, message=[channel])
         private readonly Dictionary<string, MKey> m_ChannelKeys = new Dictionary<string, MKey>();
 
-        // etats desires (mis a jour par Lua a chaque tick) / etats appliques (dernier envoye)
+        // desired states (updated by Lua every tick) / applied states (last sent)
         private readonly Dictionary<string, bool> m_Pending = new Dictionary<string, bool>();
         private readonly Dictionary<string, bool> m_Applied = new Dictionary<string, bool>();
 
-        // canaux signales sans écouteur (log unique par canal par simulation)
+        // channels reported with no listener (logged once per channel per simulation)
         private readonly HashSet<string> m_Warned = new HashSet<string>();
 
-        // sondes M3 : canaux en erreur (log unique par canal)
+        // M3 probes: channels in error (logged once per channel)
         private readonly HashSet<string> m_Errored = new HashSet<string>();
 
         internal LuaActuatorApi(MicrocontrollerScript controller)
@@ -46,7 +46,7 @@ namespace ScriptingMod
             m_Controller = controller;
         }
 
-        // --- Lua : emulate(canal, etat) ---
+        // --- Lua: emulate(channel, state) ---
 
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
         {
@@ -59,7 +59,7 @@ namespace ScriptingMod
 
         public DynValue MetaIndex(Script script, string metaname)
         {
-            // rend le wrapper directement callable : emulate("canal", true)
+            // makes the wrapper directly callable: emulate("channel", true)
             if (metaname == "__call")
             {
                 return DynValue.NewCallback(EmulateCallback, "emulate");
@@ -69,10 +69,9 @@ namespace ScriptingMod
 
         private DynValue EmulateCallback(ScriptExecutionContext ctx, CallbackArguments args)
         {
-            // Robuste aux deux formes : emulate("canal", true) via __call (args =
-            // [wrapper, canal, etat]) et emulate.emulate("canal", true) via Index (args =
-            // [canal, etat]). On prend le premier string comme canal, le premier booleen
-            // comme etat.
+            // Robust to both forms: emulate("channel", true) via __call (args =
+            // [wrapper, channel, state]) and emulate.emulate("channel", true) via Index
+            // (args = [channel, state]). First string = channel, first boolean = state.
             DynValue channelArg = null;
             DynValue stateArg = null;
             for (int i = 0; i < args.Count && (channelArg == null || stateArg == null); i++)
@@ -89,11 +88,11 @@ namespace ScriptingMod
 
             if (channelArg == null || channelArg.String.Length == 0)
             {
-                throw new ScriptRuntimeException("emulate(canal, etat) : canal (chaine) requis, ex. emulate(\"pousser\", true)");
+                throw new ScriptRuntimeException("emulate(channel, state): channel (string) required, e.g. emulate(\"push\", true)");
             }
             if (stateArg == null)
             {
-                throw new ScriptRuntimeException("emulate(canal, etat) : etat (booleen) requis, ex. emulate(\"pousser\", true)");
+                throw new ScriptRuntimeException("emulate(channel, state): state (boolean) required, e.g. emulate(\"push\", true)");
             }
 
             m_Pending[channelArg.String] = stateArg.Boolean;
@@ -105,7 +104,7 @@ namespace ScriptingMod
             return false;
         }
 
-        // --- Application au tick d'emulation officiel (appele par le controller) ---
+        // --- Application at the official emulation tick (called by the controller) ---
 
         internal void ApplyPending()
         {
@@ -119,17 +118,18 @@ namespace ScriptingMod
                 string channel = kv.Key;
                 bool state = kv.Value;
 
-                // Idempotence vs l'ETAT REEL du jeu. UpdateEmulation est un COMPTEUR
-                // (+= ±1), pas un etat : envoyer "false" a un canal jamais actif le fait
-                // passer a -1, et le "true" suivant ne le ramene qu'a 0 (Emulating =
-                // emulators > 0 reste faux — moteur mort). Au demarrage, le jeu est dans
-                // l'etat "relache" (compteur 0) : un canal absent de m_Applied est donc
-                // deja "applique a false" — TryGetValue ecrit false dans previously.
+                // Idempotence vs the game's REAL state. UpdateEmulation is a COUNTER
+                // (+= +/-1), not a state: sending "false" to a never-active channel
+                // brings it to -1, and the following "true" only brings it back to 0
+                // (Emulating = emulators > 0 stays false - dead motor). At startup the
+                // game is in the "released" state (counter 0): a channel absent from
+                // m_Applied is therefore ALREADY "applied to false" - TryGetValue
+                // writes false into previously.
                 bool previously;
                 m_Applied.TryGetValue(channel, out previously);
                 if (previously == state)
                 {
-                    continue; // idempotence : rien a changer
+                    continue; // idempotence: nothing to change
                 }
 
                 if (!m_Controller.ChannelHasListeners(channel))
@@ -137,9 +137,12 @@ namespace ScriptingMod
                     if (!m_Warned.Contains(channel))
                     {
                         m_Warned.Add(channel);
-                        ModConsole.Log("[ScriptingMod] diag cles machine : " + m_Controller.DumpMachineKeys());
-                        ModConsole.Log("[ScriptingMod] actionneur : canal \"" + channel
-                            + "\" sans écouteur — liez la touche d'un bloc a ce MESSAGE dans son mapper (variable/« " + channel + " »)");
+                        ModConsole.Log("[ScriptingMod] actuator: channel \""
+                            + channel + "\" has no listener - bind a block key to this MESSAGE in its mapper (variable: \""
+                            + channel + "\")");
+                        // Probe: shows exactly what the machine's MKeys contain
+                        // (typed message, useMessage, keycodes).
+                        ModConsole.Log("[ScriptingMod] machine keys dump: " + m_Controller.DumpMachineKeys());
                     }
                     continue;
                 }
@@ -150,13 +153,14 @@ namespace ScriptingMod
                 }
                 catch (System.Exception ex)
                 {
-                    // KeyInputController.Emulate fait usedMessages[text] — une exception
-                    // ici casserait le tick machine du jeu ; on capture une fois par canal.
+                    // KeyInputController.Emulate dereferences usedMessages[text] - an
+                    // exception here would break the game's machine tick; captured once
+                    // per channel.
                     if (!m_Errored.Contains(channel))
                     {
                         m_Errored.Add(channel);
-                        ModConsole.Log("[ScriptingMod] ERREUR emulate(\"" + channel + "\") : "
-                            + ex.GetType().FullName + " : " + ex.Message);
+                        ModConsole.Log("[ScriptingMod] ERROR emulate(\"" + channel + "\"): "
+                            + ex.GetType().FullName + ": " + ex.Message);
                     }
                     continue;
                 }
@@ -164,7 +168,7 @@ namespace ScriptingMod
             }
         }
 
-        /// <summary>Relache tout ce qui a ete applique (fin de simulation).</summary>
+        /// <summary>Releases everything that was applied (end of simulation).</summary>
         internal void ResetAll()
         {
             foreach (KeyValuePair<string, bool> kv in m_Applied)
@@ -185,8 +189,9 @@ namespace ScriptingMod
             MKey key;
             if (!m_ChannelKeys.TryGetValue(channel, out key))
             {
-                // MKey construit manuellement (ctor public) — jamais affiche dans un mapper ;
-                // useMessage=true : l'emulation vise le MESSAGE (canal nomme, pas une touche).
+                // Manually built MKey (public ctor) - never displayed in a mapper ;
+                // useMessage=true: the emulation targets the MESSAGE (named channel,
+                // not a key).
                 key = new MKey("emulate-" + channel, "sm-emulate-" + channel, KeyCode.None, isEmulator: true);
                 key.useMessage = true;
                 key.message = new string[1] { channel };

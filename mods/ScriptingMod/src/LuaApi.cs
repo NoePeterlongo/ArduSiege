@@ -1,15 +1,15 @@
-// LuaApi — M2 du mod ScriptingMod (Besiege) : API capteurs exposee a Lua.
+// LuaApi - ScriptingMod M2 (Besiege): the sensors API exposed to Lua.
 //
-// Trois wrappers IUserDataType (pattern valide au M0 : AutoDescribingUserDataDescriptor,
-// zero reflexion — regles d'or AGENTS.md) :
-//   self    : le bloc microcontroleur            (position, vitesse, sante, type...)
-//   machine : la machine pendant la simulation    (blocs, filtres, stats)
-//   input   : le clavier REEL du joueur (UnityEngine.Input — autorise par le scanner)
+// Three IUserDataType wrappers (pattern validated at M0: zero reflection -
+// AGENTS.md golden rules) :
+//   self    : the microcontroller block          (position, velocity, health, type...)
+//   machine : the machine during simulation       (blocks, filters, stats)
+//   input   : the player's REAL keyboard (UnityEngine.Input - allowed by the scanner)
 //
-// Acces Lua : self.position (table {x,y,z}), machine:blocks("Cog"), input:is_held("Space")...
-// Toutes les donnees sont des primitives/tables MoonSharp — jamais d'objets CLR bruts.
-// Sources : API officielle Modding.Blocks (Block, PlayerMachine) + Modding.Game.
-// Voir docs/journal-m2.md.
+// Lua access: self.position (table {x,y,z}), machine:blocks("Cog"), input:is_held("Space")...
+// All data is MoonSharp primitives/tables - never raw CLR objects.
+// Sources: official Modding.Blocks API (Block, PlayerMachine) + Modding.Game.
+// See docs/journal-m2.md.
 
 using System;
 using System.Collections.Generic;
@@ -21,9 +21,9 @@ using UnityEngine;
 namespace ScriptingMod
 {
     /// <summary>
-    /// Fabrique + installation des globals Lua (self, machine, input) sur une instance
-    /// Script. Appele au montage du runtime (avant DoString : le script peut les utiliser
-    /// dans on_sim_start).
+    /// Builds + installs the Lua globals (self, machine, input) on a Script
+    /// instance. Called at runtime mount (before DoString: the script can use
+    /// them from on_sim_start).
     /// </summary>
     internal static class LuaApi
     {
@@ -43,7 +43,7 @@ namespace ScriptingMod
 
         internal static DynValue Vec3(Script script, Vector3 v)
         {
-            // table {x=, y=, z=} fraiche — lisible et sans interop
+            // fresh {x=, y=, z=} table - readable, no interop
             DynValue t = DynValue.NewTable(script);
             Table tab = t.Table;
             tab.Set("x", DynValue.NewNumber(v.x));
@@ -54,18 +54,18 @@ namespace ScriptingMod
     }
 
     /// <summary>
-    /// Wrapper Lua d'un bloc (self ou elements de machine:blocks()).
-    /// Lectures : type, prefab_name, guid, position, rotation (euler), velocity,
+    /// Lua wrapper of a block (self or elements of machine:blocks()).
+    /// Reads: type, prefab_name, guid, position, rotation (euler), velocity,
     /// angular_velocity, health, is_burning, is_destroyed, is_simulating.
     /// </summary>
     internal class LuaBlockApi : IUserDataType
     {
         private readonly Modding.Blocks.Block m_Block;
 
-        // actionnement direct des touches du bloc (null en contexte console)
+        // direct actuation of the block's keys (null in console context)
         private readonly BlockKeyActuator m_Keys;
 
-        // rampes d'angle cible (null en contexte console)
+        // target-angle ramps (null in console context)
         private readonly BlockAngleRamps m_Ramps;
 
         internal LuaBlockApi(Modding.Blocks.Block block)
@@ -110,8 +110,8 @@ namespace ScriptingMod
                 case "forward":
                 case "up":
                 case "right":
-                    // DUAL : axe du bloc (b.forward = vecteur x/y/z) ET action
-                    // (b:forward(true) = touche du mapper, si le bloc en a une).
+                    // DUAL: block axis (b.forward = x/y/z vector) AND action
+                    // (b:forward(true) = its mapper key, if the block has one).
                     return AxisAndAction(script, bb, index.String);
                 case "quaternion":
                 {
@@ -140,15 +140,15 @@ namespace ScriptingMod
                     return DynValue.NewBoolean(m_Block.IsBurning);
                 case "is_destroyed":
                     return DynValue.NewBoolean(bb.IsDestroyed);
-                // --- M3 : sliders (lecture/ecriture directes, SP privilegie) ---
+                // --- M3: sliders (direct read/write, SP-first) ---
                 case "sliders":
                     return BuildSlidersTable(script, bb);
                 case "slider":
                     return DynValue.NewCallback((ctx, args) => SliderRead(script, args), "slider");
                 case "set_slider":
                     return DynValue.NewCallback((ctx, args) => SliderWrite(script, args), "set_slider");
-                // --- actionnement direct des touches (sans variables vanilla) ---
-                // --- actionnement direct : actions du bloc par leur nom UI ---
+                // --- direct actuation of keys (no vanilla variables) ---
+                // --- direct actuation: the block's actions by their UI name ---
                 case "actions":
                     return BuildActionsTable(script, bb);
                 case "action":
@@ -164,14 +164,14 @@ namespace ScriptingMod
                     return DynValue.NewCallback((ctx, args) => ToggleRead(script, args), "toggle");
                 default:
                     // b:<nom_action>(etat) : resolution par cle de mapper OU libelle
-                    // UI (insensible a la casse) — ex. b:contract(true), b:wind(true).
+                    // UI, case-insensitive) - e.g. b:contract(true), b:wind(true).
                     return ActionByName(script, bb, index.String);
             }
         }
 
         // --- actionnement direct : MKey.UpdateEmulation (compteur, idempotent) ---
-        // Les actions portent le nom vu dans l'UI : cle de mapper ("forward", "spin",
-        // "contract", "wind"...) ou libelle affiche, insensible a la casse.
+        // Actions carry the name seen in the UI: mapper key ("forward", "spin",
+        // "contract", "wind"...) or displayed label, case-insensitive.
 
         private static UnityEngine.Vector3 AxisVector(BlockBehaviour bb, string axis)
         {
@@ -184,8 +184,8 @@ namespace ScriptingMod
         }
 
         /// <summary>
-        /// Valeur DUALE pour les axes : table {x,y,z} ET action appelable —
-        /// b.forward (vecteur, M2) et b:forward(true) (touche du mapper, si presente).
+        /// DUAL value for axes: {x,y,z} table AND callable action -
+        /// b.forward (vector, M2) and b:forward(true) (its mapper key, if any).
         /// </summary>
         private DynValue AxisAndAction(Script script, BlockBehaviour bb, string axis)
         {
@@ -201,7 +201,7 @@ namespace ScriptingMod
             return t;
         }
 
-        /// <summary>b.actions : table nom appelable -> libelle UI.</summary>
+        /// <summary>b.actions: callable name -> UI label table.</summary>
         private static DynValue BuildActionsTable(Script script, BlockBehaviour bb)
         {
             DynValue result = DynValue.NewTable(script);
@@ -227,18 +227,18 @@ namespace ScriptingMod
             return result;
         }
 
-        /// <summary>b:<nom>(etat) — null si le nom ne correspond a aucune action.</summary>
+        /// <summary>b:<name>(state) - null if the name matches no action.</summary>
         private DynValue ActionByName(Script script, BlockBehaviour bb, string name)
         {
             MKey key = FindKeyByName(bb, name);
             if (key == null)
             {
-                return null;    // propriete inconnue (comportement standard : nil)
+                return null;    // unknown property (standard behaviour: nil)
             }
             return DynValue.NewCallback((ctx, args) => ApplyKey(script, key, args, name), name);
         }
 
-        /// <summary>b:action(nom, etat) — acces generique (noms calcules).</summary>
+        /// <summary>b:action(name, state) - generic access (computed names).</summary>
         private DynValue ActionCommand(Script script, CallbackArguments args)
         {
             string name = FirstStringArg(args);
@@ -251,7 +251,7 @@ namespace ScriptingMod
             return ApplyKey(script, key, args, name);
         }
 
-        /// <summary>Retrouve une MKey par cle de mapper OU libelle UI (insensible a la casse).</summary>
+        /// <summary>Finds an MKey by mapper key OR UI label (case-insensitive).</summary>
         private static MKey FindKeyByName(BlockBehaviour bb, string name)
         {
             if (bb == null || bb.MapperTypes == null || string.IsNullOrEmpty(name))
@@ -280,12 +280,12 @@ namespace ScriptingMod
             return byDisplay;
         }
 
-        /// <summary>Applique l'etat desire a une MKey (transitions uniquement).</summary>
+        /// <summary>Applies the desired state to an MKey (transitions only).</summary>
         private DynValue ApplyKey(Script script, MKey key, CallbackArguments args, string name)
         {
             if (m_Keys == null)
             {
-                throw new ScriptRuntimeException("actionnement direct indisponible dans ce contexte (hors controleur)");
+                throw new ScriptRuntimeException("direct actuation unavailable in this context (no controller)");
             }
             bool? state = null;
             for (int i = 0; i < args.Count; i++)
@@ -298,8 +298,8 @@ namespace ScriptingMod
             }
             if (!state.HasValue)
             {
-                throw new ScriptRuntimeException("b:" + name + "(etat) : booleen requis, ex. b:"
-                    + name + "(true) — etat complet a chaque tick conseille (ex. b:forward(input:is_held(\"P\")))");
+                throw new ScriptRuntimeException("b:" + name + "(state): boolean required, e.g. b:"
+                    + name + "(true) - full state every tick recommended (e.g. b:forward(input:is_held(\"P\")))");
             }
             m_Keys.Set(key, state.Value);
             return DynValue.Nil;
@@ -353,19 +353,19 @@ namespace ScriptingMod
 
         private DynValue SliderRead(Script script, CallbackArguments args)
         {
-            // b:slider("speed") ou b.slider("speed") — premier argument string
+            // b:slider("speed") or b.slider("speed") - first string argument
             string name = FirstStringArg(args);
             MSlider slider = FindSlider(m_Block.InternalObject, name);
             if (slider == null)
             {
-                throw new ScriptRuntimeException("slider inconnu \"" + name + "\" — consultez b.sliders pour la liste");
+                throw new ScriptRuntimeException("unknown slider \"" + name + "\" - check b.sliders for the list");
             }
             return DynValue.NewNumber(slider.Value);
         }
 
         private DynValue SliderWrite(Script script, CallbackArguments args)
         {
-            // b:set_slider("speed", 1.5) — premier string = nom, premier nombre = valeur
+            // b:set_slider("speed", 1.5) - first string = name, first number = value
             string name = FirstStringArg(args);
             double? value = null;
             for (int i = 0; i < args.Count; i++)
@@ -378,12 +378,12 @@ namespace ScriptingMod
             }
             if (name == null || !value.HasValue)
             {
-                throw new ScriptRuntimeException("set_slider(nom, valeur) : ex. b:set_slider(\"speed\", 1.5)");
+                throw new ScriptRuntimeException("set_slider(name, value): e.g. b:set_slider(\"speed\", 1.5)");
             }
             MSlider slider = FindSlider(m_Block.InternalObject, name);
             if (slider == null)
             {
-                throw new ScriptRuntimeException("slider inconnu \"" + name + "\" — consultez b.sliders pour la liste");
+                throw new ScriptRuntimeException("unknown slider \"" + name + "\" - check b.sliders for the list");
             }
             slider.Value = (float)value.Value;   // setter public -> notifie le bloc (InvokeValueChanged)
             return DynValue.Nil;
@@ -402,12 +402,13 @@ namespace ScriptingMod
         }
 
         // --- etats des actionneurs ---
-        // Angle de charniere : le jeu n'expose que la CIBLE (AngleToBe, degres) —
-        // l'angle reel n'a pas de source interne (l'Anglometer calcule par geometrie).
-        // b:set_angle(v) force targetAngleMode (champ public du composant, non
-        // persistant : les blocs se reinstancient a chaque sim) et commande la cible.
+        // Hinge angle: the game only exposes the TARGET (AngleToBe, degrees) -
+        // the real angle has no internal source (the Anglometer computes it
+        // geometrically). b:set_angle(v) forces targetAngleMode (public component
+        // field, non-persistent: blocks are re-instantiated every sim) and
+        // commands the target.
 
-        /// <summary>b.angle_target : angle COMMANDE (degres) — charniere/gouvernail.</summary>
+        /// <summary>b.angle_target: commanded angle (degrees) - hinge/rudder.</summary>
         private static DynValue BlockAngleTarget(BlockBehaviour bb)
         {
             SteeringWheel sw = bb as SteeringWheel;
@@ -420,17 +421,17 @@ namespace ScriptingMod
         }
 
         /// <summary>
-        /// b:set_angle(degres) : commande l'angle cible d'un bloc orientable
-        /// (SteeringWheel = charniere ; RudderController = gouvernail), en RAMPE a
-        /// la vitesse du bloc (slider rotation-speed — transparent : meme vitesse que
-        /// la touche). b:set_angle(degres, v_max) : surcharge en degres/seconde.
-        /// Le mode "angle cible" est active au passage (reinitialise a la prochaine sim).
+        /// b:set_angle(degrees): commands the target angle of an orientable block
+        /// (SteeringWheel = hinge; RudderController = rudder), RAMPED at the block's
+        /// own speed (rotation-speed slider - transparent: same speed as its key).
+        /// b:set_angle(degrees, v_max): overrides in degrees/second.
+        /// Target-angle mode is enabled on the fly (reset at the next sim).
         /// </summary>
         private DynValue SetAngleCommand(Script script, CallbackArguments args)
         {
             if (m_Ramps == null)
             {
-                throw new ScriptRuntimeException("actionnement direct indisponible dans ce contexte (hors controleur)");
+                throw new ScriptRuntimeException("direct actuation unavailable in this context (no controller)");
             }
             double? angle = null;
             double? vMax = null;
@@ -450,8 +451,8 @@ namespace ScriptingMod
             }
             if (!angle.HasValue)
             {
-                throw new ScriptRuntimeException("b:set_angle(degres[, v_max]) : ex. b:set_angle(45)"
-                    + " — rampe a la vitesse du bloc ; b:set_angle(45, 30) : 30 degres/seconde");
+                throw new ScriptRuntimeException("b:set_angle(degrees[, v_max]): e.g. b:set_angle(45)"
+                    + " - ramp at the block's speed; b:set_angle(45, 30): 30 degrees/second");
             }
             BlockBehaviour bb = m_Block.InternalObject;
             if (bb is SteeringWheel || bb is RudderController)
@@ -459,7 +460,7 @@ namespace ScriptingMod
                 m_Ramps.Set(bb, (float)angle.Value, (float)(vMax ?? 0.0));
                 return DynValue.Nil;
             }
-            throw new ScriptRuntimeException("set_angle : bloc non orientable (charniere ou gouvernail uniquement)");
+            throw new ScriptRuntimeException("set_angle: block is not orientable (hinge or rudder only)");
         }
 
         private static DynValue BuildTogglesTable(Script script, BlockBehaviour bb)
@@ -481,14 +482,14 @@ namespace ScriptingMod
             return result;
         }
 
-        /// <summary>b:toggle(nom) : lit l'etat d'un toggle du bloc.</summary>
+        /// <summary>b:toggle(name): reads one of the block's toggles.</summary>
         private DynValue ToggleRead(Script script, CallbackArguments args)
         {
             string name = FirstStringArg(args);
             BlockBehaviour bb = m_Block.InternalObject;
             if (bb == null || bb.MapperTypes == null || string.IsNullOrEmpty(name))
             {
-                throw new ScriptRuntimeException("b:toggle(nom) : nom requis, ex. b:toggle(\"automatic\")");
+                throw new ScriptRuntimeException("b:toggle(name): name required, e.g. b:toggle(\"automatic\")");
             }
             MToggle found = null;
             foreach (MapperType mt in bb.MapperTypes)
@@ -509,15 +510,15 @@ namespace ScriptingMod
             }
             if (found == null)
             {
-                throw new ScriptRuntimeException("toggle inconnu \"" + name
-                    + "\" — consultez b.toggles pour la liste");
+                throw new ScriptRuntimeException("unknown toggle \"" + name
+                    + "\" - check b.toggles for the list");
             }
             return DynValue.NewBoolean(found.IsActive);
         }
 
         private static DynValue UnknownAction(string name, BlockBehaviour bb)
         {
-            string connus = "(aucune)";
+            string known = "(none)";
             if (bb != null && bb.MapperTypes != null)
             {
                 foreach (MapperType mt in bb.MapperTypes)
@@ -525,17 +526,17 @@ namespace ScriptingMod
                     MKey k = mt as MKey;
                     if (k != null)
                     {
-                        connus = (connus == "(aucune)") ? k.Key : connus + ", " + k.Key;
+                        known = (known == "(none)") ? k.Key : known + ", " + k.Key;
                     }
                 }
             }
-            throw new ScriptRuntimeException("action inconnue \"" + name + "\" sur ce bloc — actions : "
-                + connus + " (b.actions pour la liste complete)");
+            throw new ScriptRuntimeException("unknown action \"" + name + "\" on this block - actions: "
+                + known + " (b.actions for the full list)");
         }
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)
         {
-            return false; // lecture seule pour M2
+            return false; // read-only for M2
         }
 
         public DynValue MetaIndex(Script script, string metaname)
@@ -545,10 +546,10 @@ namespace ScriptingMod
     }
 
     /// <summary>
-    /// Wrapper Lua de la machine (Modding.Blocks.PlayerMachine).
-    /// Proprietes : position, rotation, mass, health, block_count, size.
-    /// Methode : machine:blocks([filtre]) — table de LuaBlockApi, filtre = sous-chaine
-    /// insensible a la casse sur le type (enum) ou le nom de prefab.
+    /// Lua wrapper of the machine (Modding.Blocks.PlayerMachine).
+    /// Properties: position, rotation, mass, health, block_count, size.
+    /// Method: machine:blocks([filter]) - table of LuaBlockApi, filter = substring,
+    /// case-insensitive, on the (enum) type or the prefab name.
     /// </summary>
     internal class LuaMachineApi : IUserDataType
     {
@@ -586,8 +587,8 @@ namespace ScriptingMod
                     return LuaApi.Vec3(script, MachinePosition());
                 case "rotation":
                     return LuaApi.Vec3(script, MachineRotationQuat().eulerAngles);
-                // axes du repere MACHINE (bloc de reference, LIVE pendant la sim —
-                // Machine.Rotation lit buildingMachine, immobile en sim : fige).
+                // MACHINE frame axes (reference block, LIVE during sim -
+                // Machine.Rotation reads buildingMachine, motionless in sim: frozen).
                 case "up":
                     return LuaApi.Vec3(script, MachineUp());
                 case "forward":
@@ -615,17 +616,17 @@ namespace ScriptingMod
         }
 
         /// <summary>
-        /// machine:refs("canal") -> table (indexee) des blocs dont une touche ecoute
-        /// le MESSAGE vanilla "canal" (liaisons « variables a la place des touches »).
-        /// Persistance native (.bsg), survit au deplacement, adressage de groupe.
+        /// machine:refs("channel") -> indexed table of the blocks whose key listens
+        /// to the vanilla MESSAGE "channel" ("variables instead of keys" bindings).
+        /// Native persistence (.bsg), survives moving, group addressing.
         /// </summary>
         private DynValue RefsTable(Script script, CallbackArguments args)
         {
             string channel = LuaBlockApi.FirstStringArg(args);
             if (string.IsNullOrEmpty(channel))
             {
-                throw new ScriptRuntimeException("machine:refs(canal) : canal requis, ex. machine:refs(\"rotor\")"
-                    + " — la liaison se fait dans le mapper du bloc (variable/message, Advanced Building)");
+                throw new ScriptRuntimeException("machine:refs(channel): channel required, e.g. machine:refs(\"rotor\")"
+                    + " - the binding is made in the block's mapper (variable/message, Advanced Building)");
             }
             System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
                 Modding.Game.IsSimulating ? m_Machine.SimulationBlocks : m_Machine.BuildingBlocks;
@@ -672,7 +673,7 @@ namespace ScriptingMod
 
         private DynValue BuildBlocks(Script script, CallbackArguments args)
         {
-            // args[0] = le wrapper machine (syntaxe deux-points) — ignore.
+            // args[0] = the machine wrapper (colon syntax) - ignored.
             string filter = null;
             if (args.Count > 1 && args[1].Type == MoonSharp.Interpreter.DataType.String)
             {
@@ -709,11 +710,11 @@ namespace ScriptingMod
             return result;
         }
 
-        // --- repere machine LIVE (RefBlock : bouge avec la machine en sim) ---
-        // Machine.Position/Rotation lisent buildingMachine (immobile pendant la sim).
-        // La source live du jeu : Machine.RefUp/RefForward/RefCenter/RefVel, calcules
-        // depuis le bloc de reference. Hors sim (construction), Ref* rend zero ->
-        // repli sur le repere de construction (vivant en mode construction).
+        // --- LIVE machine frame (RefBlock: moves with the machine during sim) ---
+        // Machine.Position/Rotation read buildingMachine (motionless during sim).
+        // The game's live source: Machine.RefUp/RefForward/RefCenter/RefVel, computed
+        // from the reference block. Outside sim (building), Ref* return zero ->
+        // fall back to the building frame (live in build mode).
 
         private UnityEngine.Vector3 MachineUp()
         {
@@ -738,8 +739,8 @@ namespace ScriptingMod
 
         private UnityEngine.Vector3 MachinePosition()
         {
-            // RefCenter = centre du bloc de reference (live en sim) ; en construction,
-            // Machine.Position (racine construction) est vivante.
+            // RefCenter = reference block center (live during sim); while building,
+            // Machine.Position (building root) is live.
             return (Modding.Game.IsSimulating)
                 ? m_Machine.InternalObject.RefCenter
                 : m_Machine.Position;
@@ -767,7 +768,7 @@ namespace ScriptingMod
     }
 
     /// <summary>
-    /// Wrapper Lua du clavier REEL du joueur (UnityEngine.Input — hors liste noire).
+    /// Lua wrapper of the player's REAL keyboard (UnityEngine.Input - not blacklisted).
     /// Methodes : input:is_held("Space"), input:is_pressed("Space"), input:is_released("Space").
     /// Les noms sont ceux de l'enum UnityEngine.KeyCode (Space, W, LeftControl, Mouse0...).
     /// NB : lecture directe du clavier, pas des touches du mapper des blocs (M3+).
@@ -796,7 +797,7 @@ namespace ScriptingMod
 
         private static DynValue Key(CallbackArguments args, Func<KeyCode, bool> probe)
         {
-            // Accepte les deux syntaxes : input:is_held("Space") (args[1]) et
+            // Accepts both forms: input:is_held("Space") (args[1]) and
             // input.is_held("Space") (args[0]).
             DynValue keyArg = null;
             if (args.Count >= 2)
@@ -810,18 +811,18 @@ namespace ScriptingMod
 
             if (keyArg == null || keyArg.Type != MoonSharp.Interpreter.DataType.String)
             {
-                throw new ScriptRuntimeException("input: attend un nom de touche KeyCode, ex. input:is_held(\"Space\")");
+                throw new ScriptRuntimeException("input: KeyCode name expected, e.g. input:is_held(\"Space\")");
             }
             string name = keyArg.String;
             try
             {
-                // System.Enum (namespace System) : autorise par le scanner — pas de reflexion.
+                // System.Enum (System namespace): allowed by the scanner - no reflection.
                 KeyCode key = (KeyCode)Enum.Parse(typeof(KeyCode), name, true);
                 return DynValue.NewBoolean(probe(key));
             }
             catch (ArgumentException)
             {
-                throw new ScriptRuntimeException("touche inconnue : \"" + name + "\" (noms UnityEngine.KeyCode, ex. Space, W, LeftControl, Mouse0)");
+                throw new ScriptRuntimeException("unknown key: \"" + name + "\" (UnityEngine.KeyCode names, e.g. Space, W, LeftControl, Mouse0)");
             }
         }
 

@@ -67,8 +67,8 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
    après publication — ils lient les machines/niveaux sauvegardés.
 4. Multiplayer : émulation de touches = host uniquement ; une incompatibilité MP se déclare
    via `<MultiplayerCompatible>false</MultiplayerCompatible>`.
-5. Mod.xml et le code source des mods : ASCII pur (le parser XML du jeu écrit en us-ascii ;
-   évite tout risque inutile). Exception acceptée : les commentaires de code.
+5. Mod.xml, le code source des mods et TOUT leur contenu : ASCII pur (le parser XML
+   du jeu est en us-ascii ; évite tout risque inutile).
 6. **Jamais `.Name` sur un `Type`** — `Type.Name` compile en
    `System.Reflection.MemberInfo::get_Name()` et le scanner le rejette (le type
    déclarant est dans `System.Reflection`). Toujours `.FullName` (déclaré sur
@@ -100,6 +100,11 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
     point d'attache, pas nécessairement cubique. L'icône rend le mesh **brut** (sans
     `<Mesh><Scale>`) : compenser via `<Icon><Scale>` (ici ×0.25 pour un mesh ±1).
 
+12. **TOUT EN ANGLAIS** : le code du mod, les commentaires, les chaînes (console,
+    messages d'erreur Lua), les démos embarquées, la doc joueur et les commits sont
+    en ANGLAIS (ASCII). Les journaux historiques (docs/journal-*.md, étude, workflow)
+    restent en français — ce sont des archives ; tout nouveau document est en anglais.
+
 ## Documentation
 
 - Source de vérité officielle : `Besiege/Besiege_Data/Documentation/Modding.pdf`
@@ -113,7 +118,8 @@ Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande consol
 
 ## Conventions de travail
 
-- Commits en français, à l'impératif ; une tâche = un commit si possible.
+- **TOUT EN ANGLAIS** (règle 12 ci-dessus) : commits en anglais, à l'impératif ;
+  une tâche = un commit si possible.
 - Test systématique en jeu après build (console `Ctrl+Shift+K`, `show_logs true`,
   entrer dans un niveau — les mods se chargent à l'entrée en partie, pas au lancement).
 - Après premier chargement d'un nouveau mod : commiter le GUID inséré dans son `Mod.xml`.

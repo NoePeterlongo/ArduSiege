@@ -163,6 +163,20 @@ namespace ArduSiege
                     return BuildTogglesTable(script, bb);
                 case "toggle":
                     return DynValue.NewCallback((ctx, args) => ToggleRead(script, args), "toggle");
+                // --- sensor/logic blocks: read what they broadcast / measure ---
+                // Explicit casts on game types, no reflection (scanner-safe).
+                case "output":
+                    return SensorOutput(bb);
+                case "height":
+                {
+                    AltimeterBlock alt = bb as AltimeterBlock;
+                    return (alt == null) ? DynValue.Nil : DynValue.NewNumber(alt.Height);
+                }
+                case "detecting":
+                {
+                    SensorBlock sensor = bb as SensorBlock;
+                    return (sensor == null) ? DynValue.Nil : DynValue.NewBoolean(sensor.IsDetecting);
+                }
                 default:
                     // b:<nom_action>(etat) : resolution par cle de mapper OU libelle
                     // UI, case-insensitive) - e.g. b:contract(true), b:wind(true).
@@ -516,6 +530,29 @@ namespace ArduSiege
             return DynValue.NewBoolean(found.IsActive);
         }
 
+        /// <summary>
+        /// b.output: the boolean a sensor/logic block is currently broadcasting
+        /// on its "Automate" (emulator) key - i.e. the state every listener of
+        /// its variable feels, after the block's own filtering (ranges, reverse).
+        /// nil when the block has no emulator key.
+        /// </summary>
+        private static DynValue SensorOutput(BlockBehaviour bb)
+        {
+            if (bb == null || bb.MapperTypes == null)
+            {
+                return DynValue.Nil;
+            }
+            foreach (MapperType mt in bb.MapperTypes)
+            {
+                MKey key = mt as MKey;
+                if (key != null && key.isEmulator)
+                {
+                    return DynValue.NewBoolean(key.Emulating);
+                }
+            }
+            return DynValue.Nil;
+        }
+
         private static DynValue UnknownAction(string name, BlockBehaviour bb)
         {
             string known = "(none)";
@@ -610,6 +647,9 @@ namespace ArduSiege
                 // --- Refs : blocs qui ecoutent une variable/message vanilla (liaisons mapper) ---
                 case "refs":
                     return DynValue.NewCallback((ctx, args) => RefsTable(script, args), "refs");
+                // --- Emitters : blocs dont la cle Automate EMET sur une variable/message ---
+                case "emitters":
+                    return DynValue.NewCallback((ctx, args) => EmittersTable(script, args), "emitters");
                 default:
                     return null;
             }
@@ -646,6 +686,64 @@ namespace ArduSiege
                 {
                     MKey key = mt as MKey;
                     if (key == null || !key.useMessage || key.message == null)
+                    {
+                        continue;
+                    }
+                    foreach (string message in key.message)
+                    {
+                        if (message == channel)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                    {
+                        break;
+                    }
+                }
+                if (found)
+                {
+                    n++;
+                    table.Set(n, UserData.Create(new LuaBlockApi(block, m_Keys, m_Ramps)));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// machine:emitters("channel") -> indexed table of the sensor/logic blocks
+        /// whose "Automate" (emulator) key BROADCASTS the vanilla message
+        /// "channel". Symmetric of refs() (the listeners): the game's key
+        /// registry deliberately excludes emulator keys from listeners, so
+        /// refs() alone cannot find the producer of a variable.
+        /// </summary>
+        private DynValue EmittersTable(Script script, CallbackArguments args)
+        {
+            string channel = LuaBlockApi.FirstStringArg(args);
+            if (string.IsNullOrEmpty(channel))
+            {
+                throw new ScriptRuntimeException("machine:emitters(channel): channel required, e.g. machine:emitters(\"rotor\")"
+                    + " - returns the sensor/logic blocks whose Automate key broadcasts this message");
+            }
+            System.Collections.ObjectModel.ReadOnlyCollection<Modding.Blocks.Block> blocks =
+                Modding.Game.IsSimulating ? m_Machine.SimulationBlocks : m_Machine.BuildingBlocks;
+
+            DynValue result = DynValue.NewTable(script);
+            Table table = result.Table;
+            int n = 0;
+            foreach (Modding.Blocks.Block block in blocks)
+            {
+                BlockBehaviour bb = block.InternalObject;
+                if (bb == null || bb.MapperTypes == null)
+                {
+                    continue;
+                }
+                bool found = false;
+                foreach (MapperType mt in bb.MapperTypes)
+                {
+                    MKey key = mt as MKey;
+                    if (key == null || !key.isEmulator || !key.useMessage || key.message == null)
                     {
                         continue;
                     }

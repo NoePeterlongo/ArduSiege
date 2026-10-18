@@ -98,7 +98,18 @@ and no tag is ever required to actuate a block (see below).
 local p, v = self.position, self.velocity      -- world-space kinematics
 local up = machine.up                          -- machine frame (live)
 print(motor.sliders)                           -- discover a block's sliders/toggles/actions
+local alt = machine:blocks("Altimeter")[1]
+print(alt.height)                              -- live measured height
+local gate = machine:blocks("Anglometer")[1]
+print(gate.output)                             -- boolean the sensor broadcasts
 ```
+
+Vanilla sensor blocks (Anglometer, Altimeter, Speedometer, Sensor, Timer)
+broadcast a boolean on their **Automate** binding when their condition is met;
+`b.output` reads exactly that state (after their ranges/reverse filtering),
+`b.height`/`b.detecting` expose the live measurement where the game makes it
+public. Angle and speed are private in the game code — recompute them from
+`b.rotation`, `machine.up`, `b.velocity` instead.
 
 ### What you can drive (actuation)
 
@@ -251,6 +262,9 @@ boundaries with `math.rad(x)` / `math.deg(x)`.
 | `b:set_angle(degrees [, v_max])` | | command target angle — ramped at the block's rotation-speed slider; `v_max` (degrees/second) overrides it |
 | `b.toggles` | table | toggle name → state |
 | `b:toggle(name)` | boolean | read a toggle (e.g. `"automatic"`) |
+| `b.output` | boolean/nil | sensor/logic blocks: the boolean currently broadcast on their Automate binding; nil if the block has none |
+| `b.height` | number/nil | Altimeter only: live measured height |
+| `b.detecting` | boolean/nil | Sensor only: live detection state (before range/reverse filtering) |
 
 Note: `b.forward` (no call) is the block's forward **axis** (a vector);
 `b:forward(true)` (call) drives its forward **action**. Both work on the same
@@ -270,6 +284,7 @@ name.
 | `machine.size` | vec3 |  |
 | `machine:blocks([filter])` | table | all blocks, or those matching `filter` (substring on type/prefab, case-insensitive) |
 | `machine:refs(channel)` | table | blocks whose key listens to the vanilla message `channel` |
+| `machine:emitters(channel)` | table | sensor/logic blocks whose Automate key broadcasts the vanilla message `channel` (the producers — `refs` only finds listeners) |
 
 ### Input
 

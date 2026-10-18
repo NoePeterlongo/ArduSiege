@@ -124,6 +124,11 @@ encore ScriptingMod : ce sont des archives, ne pas les retoucher.
     messages d'erreur Lua), les démos embarquées, la doc joueur et les commits sont
     en ANGLAIS (ASCII). Les journaux historiques (docs/journal-*.md, étude, workflow)
     restent en français — ce sont des archives ; tout nouveau document est en anglais.
+13. **Le namespace `InternalModding` du jeu est sur la liste noire du scanner** (vérifié en jeu
+    au M5+, branche lecture-capteurs) : référencer `InternalModding.Blocks.ModBlockBehaviourHandler`
+    fait rejeter TOUTE la DLL (« no type named ... in mod assemblies »). Pour le `BlockBehaviour`
+    d'un bloc mod (ex. argument de `KeyInputController.AddMKey`), passer par le wrapper public :
+    `Modding.Blocks.Block.From(script).InternalObject` — aucun token `InternalModding` dans l'IL.
 
 ## Documentation
 

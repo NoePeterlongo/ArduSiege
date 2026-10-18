@@ -426,15 +426,15 @@ namespace ArduSiege
                 key = new MKey("listen", "sm-listen-" + code, code);
                 m_ListenerKeys[code] = key;
                 // AddMKey takes a BlockBehaviour - our script is a
-                // ModBlockBehaviour; the game's handler for our block
-                // (same GameObject) is the BlockBehaviour.
-                InternalModding.Blocks.ModBlockBehaviourHandler handler =
-                    GetComponent<InternalModding.Blocks.ModBlockBehaviourHandler>();
-                if (handler == null)
+                // ModBlockBehaviour. Our own block's game wrapper gives the
+                // handler (a BlockBehaviour) WITHOUT naming the forbidden
+                // "InternalModding" namespace (scanner blacklist entry).
+                Modding.Blocks.Block wrapper = Modding.Blocks.Block.From(this);
+                if (wrapper == null || wrapper.InternalObject == null)
                 {
                     return null;
                 }
-                m_InputController.AddMKey(handler, key, code);
+                m_InputController.AddMKey(wrapper.InternalObject, key, code);
             }
             return key;
         }

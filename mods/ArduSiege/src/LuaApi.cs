@@ -36,7 +36,7 @@ namespace ArduSiege
                 lua.Globals.Set("self", UserData.Create(new LuaBlockApi(selfBlock, keys, ramps)));
             }
             lua.Globals.Set("machine", UserData.Create(new LuaMachineApi(controller.Machine, keys, ramps)));
-            lua.Globals.Set("input", UserData.Create(new LuaInputApi()));
+            lua.Globals.Set("input", UserData.Create(new LuaInputApi(controller as MicrocontrollerScript)));
             lua.Globals.Set("log", UserData.Create(new LuaLogApi(logger)));
         }
 
@@ -163,10 +163,10 @@ namespace ArduSiege
                     return BuildTogglesTable(script, bb);
                 case "toggle":
                     return DynValue.NewCallback((ctx, args) => ToggleRead(script, args), "toggle");
-                // --- sensor/logic blocks: read what they broadcast / measure ---
+                // --- sensor/logic blocks: read their live measurement ---
+                // (their broadcast state is read via input:is_emulated - the
+                // game only updates LISTENER keys, never the emitter's own key.)
                 // Explicit casts on game types, no reflection (scanner-safe).
-                case "output":
-                    return SensorOutput(bb);
                 case "height":
                 {
                     AltimeterBlock alt = bb as AltimeterBlock;
@@ -530,29 +530,6 @@ namespace ArduSiege
             return DynValue.NewBoolean(found.IsActive);
         }
 
-        /// <summary>
-        /// b.output: the boolean a sensor/logic block is currently broadcasting
-        /// on its "Automate" (emulator) key - i.e. the state every listener of
-        /// its variable feels, after the block's own filtering (ranges, reverse).
-        /// nil when the block has no emulator key.
-        /// </summary>
-        private static DynValue SensorOutput(BlockBehaviour bb)
-        {
-            if (bb == null || bb.MapperTypes == null)
-            {
-                return DynValue.Nil;
-            }
-            foreach (MapperType mt in bb.MapperTypes)
-            {
-                MKey key = mt as MKey;
-                if (key != null && key.isEmulator)
-                {
-                    return DynValue.NewBoolean(key.Emulating);
-                }
-            }
-            return DynValue.Nil;
-        }
-
         private static DynValue UnknownAction(string name, BlockBehaviour bb)
         {
             string known = "(none)";
@@ -870,9 +847,20 @@ namespace ArduSiege
     /// Methodes : input:is_held("Space"), input:is_pressed("Space"), input:is_released("Space").
     /// Les noms sont ceux de l'enum UnityEngine.KeyCode (Space, W, LeftControl, Mouse0...).
     /// NB : lecture directe du clavier, pas des touches du mapper des blocs (M3+).
+    /// input:is_emulated("C") reads the EMULATION of a key (sensor/logic blocks'
+    /// Automate bindings - e.g. the presence Sensor's default KeyCode.C): the
+    /// controller registers a synthetic listener key on the machine's
+    /// KeyInputController, which the game updates on every Emulate() pass.
     /// </summary>
     internal class LuaInputApi : IUserDataType
     {
+        private readonly MicrocontrollerScript m_Controller;
+
+        internal LuaInputApi(MicrocontrollerScript controller)
+        {
+            m_Controller = controller;
+        }
+
         public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
         {
             if (index.Type != MoonSharp.Interpreter.DataType.String)
@@ -888,12 +876,47 @@ namespace ArduSiege
                     return DynValue.NewCallback((ctx, args) => Key(args, Input.GetKeyDown), "is_pressed");
                 case "is_released":
                     return DynValue.NewCallback((ctx, args) => Key(args, Input.GetKeyUp), "is_released");
+                case "is_emulated":
+                    return DynValue.NewCallback((ctx, args) => EmulatedKey(args, "is_emulated"), "is_emulated");
+                case "is_emulated_pressed":
+                    return DynValue.NewCallback((ctx, args) => EmulatedKey(args, "is_emulated_pressed"), "is_emulated_pressed");
+                case "is_emulated_released":
+                    return DynValue.NewCallback((ctx, args) => EmulatedKey(args, "is_emulated_released"), "is_emulated_released");
                 default:
                     return null;
             }
         }
 
-        private static DynValue Key(CallbackArguments args, Func<KeyCode, bool> probe)
+        /// <summary>
+        /// input:is_emulated("C") / is_emulated_pressed / is_emulated_released:
+        /// reads the emulation state a KeyCode receives from sensor/logic
+        /// blocks (their Automate binding). False when no controller is
+        /// available (outside simulation) - never throws.
+        /// </summary>
+        private DynValue EmulatedKey(CallbackArguments args, string what)
+        {
+            KeyCode code = ParseKey(args);
+            if (m_Controller == null)
+            {
+                return DynValue.NewBoolean(false);
+            }
+            MKey listener = m_Controller.GetEmulationListener(code);
+            if (listener == null)
+            {
+                return DynValue.NewBoolean(false);
+            }
+            switch (what)
+            {
+                case "is_emulated_pressed":
+                    return DynValue.NewBoolean(listener.EmulationPressed());
+                case "is_emulated_released":
+                    return DynValue.NewBoolean(listener.EmulationReleased());
+                default:
+                    return DynValue.NewBoolean(listener.Emulating);
+            }
+        }
+
+        private static KeyCode ParseKey(CallbackArguments args)
         {
             // Accepts both forms: input:is_held("Space") (args[1]) and
             // input.is_held("Space") (args[0]).
@@ -916,12 +939,22 @@ namespace ArduSiege
             {
                 // System.Enum (System namespace): allowed by the scanner - no reflection.
                 KeyCode key = (KeyCode)Enum.Parse(typeof(KeyCode), name, true);
-                return DynValue.NewBoolean(probe(key));
+                if (key == KeyCode.None)
+                {
+                    throw new ScriptRuntimeException("input: KeyCode.None cannot be emulated or read");
+                }
+                return key;
             }
             catch (ArgumentException)
             {
                 throw new ScriptRuntimeException("unknown key: \"" + name + "\" (UnityEngine.KeyCode names, e.g. Space, W, LeftControl, Mouse0)");
             }
+        }
+
+        private static DynValue Key(CallbackArguments args, Func<KeyCode, bool> probe)
+        {
+            KeyCode key = ParseKey(args);
+            return DynValue.NewBoolean(probe(key));
         }
 
         public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)

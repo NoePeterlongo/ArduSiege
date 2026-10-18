@@ -50,6 +50,13 @@ namespace ArduSiege
         private int m_TickCount;
         private string m_ScriptName;
 
+        // input:is_emulated("C") - listener MKeys registered on the machine's
+        // KeyInputController (one per queried KeyCode, rebuilt every simulation).
+        private Dictionary<KeyCode, MKey> m_ListenerKeys;
+        // the machine's KeyInputController (component on the machine root),
+        // cached per simulation.
+        private KeyInputController m_InputController;
+
         // M3: mandatory - without this flag the machine does not enable the
         // emulation system (Machine.cs reads Prefab.EmulatesAnyKeys, propagated from
         // our SafeAwake override via ModBlockBehaviourHandler.cs:174).
@@ -217,6 +224,12 @@ namespace ArduSiege
             m_KeyActuator = null;
             m_AngleRamps = null;
             m_Logger = null;
+            // Fresh emulation listeners each run: an MKey's emulator counter is
+            // not reset by the game, a stale counter would freeze is_emulated().
+            // The controller's usedKeys is cleared by Machine.InitSim - the
+            // listeners must be registered again this run.
+            m_ListenerKeys = null;
+            m_InputController = null;
 
             if (!m_ActiveToggle.IsActive)
             {
@@ -376,6 +389,54 @@ namespace ArduSiege
             // ModBlockBehaviour.EmulateKeys (public wrapper) - empty activationKeys:
             // our block has no keys of its own, no loop possible.
             EmulateKeys(new MKey[0], channelKey, state);
+        }
+
+        /// <summary>
+        /// input:is_emulated("C"): a synthetic LISTENER key registered on the
+        /// machine's KeyInputController for this KeyCode. The game's Emulate()
+        /// calls MKey.UpdateEmulation on every usedKeys[code] entry, so this key
+        /// mirrors what any sensor/logic block broadcasts on that key (e.g. a
+        /// presence Sensor's Automate binding, KeyCode.C by default). Returns
+        /// null when no controller is available (not simulating).
+        /// NB: the controller is a component on the machine root GameObject
+        /// (Machine.Awake) - Machine.InputController is internal, unreachable
+        /// from a mod, hence the GetComponentInParent lookup.
+        /// </summary>
+        internal MKey GetEmulationListener(KeyCode code)
+        {
+            if (m_InputController == null)
+            {
+                m_InputController = GetComponentInParent<KeyInputController>();
+                if (m_InputController == null)
+                {
+                    return null;
+                }
+            }
+            if (m_ListenerKeys == null)
+            {
+                m_ListenerKeys = new Dictionary<KeyCode, MKey>();
+            }
+            MKey key;
+            if (!m_ListenerKeys.TryGetValue(code, out key))
+            {
+                // Listener (isEmulator = false): AddMKey only registers
+                // non-emulator keys as listeners. Its own keycode list is
+                // irrelevant to the emulation path (the KeyCode param of
+                // AddMKey indexes usedKeys), we set it for clarity.
+                key = new MKey("listen", "sm-listen-" + code, code);
+                m_ListenerKeys[code] = key;
+                // AddMKey takes a BlockBehaviour - our script is a
+                // ModBlockBehaviour; the game's handler for our block
+                // (same GameObject) is the BlockBehaviour.
+                InternalModding.Blocks.ModBlockBehaviourHandler handler =
+                    GetComponent<InternalModding.Blocks.ModBlockBehaviourHandler>();
+                if (handler == null)
+                {
+                    return null;
+                }
+                m_InputController.AddMKey(handler, key, code);
+            }
+            return key;
         }
 
         /// <summary>

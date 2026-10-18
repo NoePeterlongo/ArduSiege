@@ -55,9 +55,15 @@ mods/ArduSiege/
   ArduSiege/                      ← dossier chargé par le jeu (Mod.xml + DLLs + blocs)
   src/                            code source + build.sh
 third-party/moonsharp-trimmed/    MoonSharp v2.0.0.0 élagué (source vendored, BSD-2)
-tools/                            build MoonSharp (Docker) + génération d'assets
+tools/                            build MoonSharp (Docker), génération d'assets, make-release.sh
+dist/                            zips de release (gitignoré — tools/make-release.sh)
 decomp/                           jeu décompilé via ILSpy (gitignoré, à regénérer au besoin)
 ```
+
+Le wrapper `mods/` n'est pas décoratif : `addmodsdir` enregistre un **dossier racine**
+que le jeu scanne (chaque sous-dossier avec `Mod.xml` = un mod). Enregistrer la racine
+du repo ferait scanner `Besiege/`, `decomp/`, `docs/` etc. — le wrapper isole le mod
+du reste du repo (disposition recommandée par la doc officielle).
 
 Le jeu ne scanne que les dossiers enregistrés via `addmodsdir` (commande console, persistant).
 Le renommage a invalidé l'ancien enregistrement (`mods/ScriptingMod` n'existe plus) :
@@ -137,5 +143,9 @@ encore ScriptingMod : ce sont des archives, ne pas les retoucher.
 - Test systématique en jeu après build (console `Ctrl+Shift+K`, `show_logs true`,
   entrer dans un niveau — les mods se chargent à l'entrée en partie, pas au lancement).
 - Après premier chargement d'un nouveau mod : commiter le GUID inséré dans son `Mod.xml`.
+- **Release** : bumper `<Version>` dans `Mod.xml`, commiter, puis
+  `bash tools/make-release.sh` → `dist/ArduSiege-v<version>.zip` (DLLs incluses,
+  jamais commitées) à joindre à une release GitHub. L'installation joueur =
+  extraire le zip dans `Besiege_Data/Mods/` (dossier scanné par défaut).
 - Ne jamais commiter : `Besiege/`, `decomp/`, `*.dll`, logs.
 - Documenter précisément, pour aider à la reprise du travail par un autre agent IA.

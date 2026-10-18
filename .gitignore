@@ -17,3 +17,5 @@ tools/moonsharp-gen/obj/
 third-party/.upstream/
 
 .vscode/*
+# Release zips (tools/make-release.sh)
+/dist/

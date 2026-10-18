@@ -16,13 +16,15 @@ Version 0.5.x — English player docs. Engineering journals live in `docs/`.
 
 ## 1. Installation
 
-**Player install (from a GitHub zip):**
+**Player install (from a GitHub release):**
 
-1. Download and unzip the repository, then copy the `ArduSiege` folder (the
-   one inside `mods/`, containing `Mod.xml`) into the game's
-   `Besiege_Data/Mods/` directory.
-2. Launch Besiege, enter any level — mods load on level entry.
-3. Open the console (`Ctrl+Shift+K`) and check the mod list: ArduSiege 0.5.0.
+1. Download the `ArduSiege-vX.Y.Z.zip` attached to a
+   [release](../../releases) — it contains the compiled mod (DLLs included).
+2. Extract it into the game's `Besiege_Data/Mods/` directory, so that you end
+   up with `Besiege_Data/Mods/ArduSiege/Mod.xml`. The stock `Mods` folder is
+   scanned automatically — no console command needed.
+3. Launch Besiege, enter any level — mods load on level entry.
+4. Open the console (`Ctrl+Shift+K`) and check the mod list: ArduSiege 0.5.0.
 
 **Development setup (this repository):** from the in-game console, run
 
@@ -311,7 +313,14 @@ bash tools/moonsharp-build.sh
 
 # build the mod DLL
 bash mods/ArduSiege/src/build.sh
+
+# package the release zip (builds both DLLs, then zips the mod folder
+# with its DLLs and licenses into dist/ArduSiege-v<version>.zip)
+bash tools/make-release.sh
 ```
+
+Release zips are built artifacts, not committed: attach
+`dist/ArduSiege-v<version>.zip` to a GitHub release (`dist/` is gitignored).
 
 The game runs a security scanner on mod assemblies: no `System.IO` (beyond a
 few exact whitelisted types), no reflection, no runtime compilation. The

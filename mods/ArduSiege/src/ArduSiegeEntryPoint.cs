@@ -49,8 +49,9 @@ namespace ArduSiege
                         return DynValue.Nil;
                     }, "print"));
 
-                // M2: input usable from the console (no machine context)
-                m_Script.Globals.Set("input", UserData.Create(new LuaInputApi()));
+                // M2: input usable from the console (no machine context -
+                // is_emulated needs a controller, reads false there)
+                m_Script.Globals.Set("input", UserData.Create(new LuaInputApi(null)));
 
                 // 2. Watchdog branchee sur la VM
                 m_Watchdog = new WatchdogDebugger(WATCHDOG_BUDGET);

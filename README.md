@@ -24,7 +24,7 @@ Version 0.5.x — English player docs. Engineering journals live in `docs/`.
    up with `Besiege_Data/Mods/ArduSiege/Mod.xml`. The stock `Mods` folder is
    scanned automatically — no console command needed.
 3. Launch Besiege, enter any level — mods load on level entry.
-4. Open the console (`Ctrl+Shift+K`) and check the mod list: ArduSiege 0.5.0.
+4. Open the console (`Ctrl+Shift+K`) and check the mod list: ArduSiege 0.5.1.
 
 **Development setup (this repository):** from the in-game console, run
 
@@ -98,7 +98,18 @@ and no tag is ever required to actuate a block (see below).
 local p, v = self.position, self.velocity      -- world-space kinematics
 local up = machine.up                          -- machine frame (live)
 print(motor.sliders)                           -- discover a block's sliders/toggles/actions
+local alt = machine:blocks("Altimeter")[1]
+print(alt.height)                              -- live measured height
+print(input:is_emulated("C"))                  -- presence sensor (Automate -> key C)
 ```
+
+Vanilla sensor blocks (Anglometer, Altimeter, Speedometer, Sensor, Timer)
+broadcast a boolean through their **Automate** binding when their condition
+is met. Bind it to a plain key (the presence Sensor defaults to `C`) and read
+`input:is_emulated("C")` from the script — no variable/channel needed.
+`b.height`/`b.detecting` expose the live measurement where the game makes it
+public. Angle and speed are private in the game code — recompute them from
+`b.rotation`, `machine.up`, `b.velocity` instead.
 
 ### What you can drive (actuation)
 
@@ -251,6 +262,8 @@ boundaries with `math.rad(x)` / `math.deg(x)`.
 | `b:set_angle(degrees [, v_max])` | | command target angle — ramped at the block's rotation-speed slider; `v_max` (degrees/second) overrides it |
 | `b.toggles` | table | toggle name → state |
 | `b:toggle(name)` | boolean | read a toggle (e.g. `"automatic"`) |
+| `b.height` | number/nil | Altimeter only: live measured height |
+| `b.detecting` | boolean/nil | Sensor only: live detection state (before range/reverse filtering) |
 
 Note: `b.forward` (no call) is the block's forward **axis** (a vector);
 `b:forward(true)` (call) drives its forward **action**. Both work on the same
@@ -270,6 +283,7 @@ name.
 | `machine.size` | vec3 |  |
 | `machine:blocks([filter])` | table | all blocks, or those matching `filter` (substring on type/prefab, case-insensitive) |
 | `machine:refs(channel)` | table | blocks whose key listens to the vanilla message `channel` |
+| `machine:emitters(channel)` | table | sensor/logic blocks whose Automate key broadcasts the vanilla message `channel` (the producers — `refs` only finds listeners) |
 
 ### Input
 
@@ -278,8 +292,16 @@ name.
 | `input:is_held("Space")` | boolean (held this frame) |
 | `input:is_pressed("Space")` | boolean (pressed this frame) |
 | `input:is_released("Space")` | boolean (released this frame) |
+| `input:is_emulated("C")` | boolean — the key is being **emulated** by a sensor/logic block (its Automate binding), not physically pressed |
+| `input:is_emulated_pressed("C")` | boolean — emulation started this tick |
+| `input:is_emulated_released("C")` | boolean — emulation ended this tick |
 
 Key names are Unity `KeyCode` names: `P`, `Space`, `LeftControl`, `Mouse0`...
+
+`is_emulated` is the sensor side of the vanilla automation system: a block
+whose Automate binding is set to key `C` emulates `C` while its condition
+holds — the script reads it like a virtual input, without any block having
+to listen to `C`.
 
 ### Log
 
